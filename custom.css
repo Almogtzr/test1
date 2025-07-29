@@ -1,0 +1,45 @@
+body {
+  padding-top: 50px;
+  padding-bottom: 20px;
+}
+
+ul.nav {
+  font-size: 13px;
+}
+
+.arvo-regular {
+  font-family: "Arvo", serif;
+}
+
+.jumbotron {
+  text-align: center;
+  background-image: url('../images/hero-image.jpg');
+  background-size: cover; /* תגרום לתמונה למלא את כל השטח */
+  background-repeat: no-repeat; /* תמנע שכפול */
+  background-position: center center; /* תמרכז את התמונה */
+  color: white;
+}
+
+    
+.jumbotron h1 {
+  margin-top: 0px;
+  margin-bottom: 50px;
+    font-family: "Arvo", serif;
+}
+
+.jumbotron p {
+    margin-bottom: 30px;
+    font-weight: 100;
+    font-family: "Arvo", serif;
+    padding: 50px;
+}
+
+.btn-lg {
+  font-size: 24px;
+}
+
+
+.nice{
+  color: blue;
+  font-size: 38px;
+}
