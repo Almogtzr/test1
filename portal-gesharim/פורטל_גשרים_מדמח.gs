@@ -58,7 +58,7 @@ function setup() {
   S.getRange(1, 6, 2, 1).setValues([['אחראים (לבחירה בעמודת "אחראי")'], ['אלמוג']]);
   S.getRange(2, 4, CATS.length, 1).setValues(CATS.map(function (c) { return [c]; }));
   catEmojiColumn_(S);
-  styleHeader_(S, 4);
+  styleHeader_(S, 6);
   S.setColumnWidth(1, 300); S.setColumnWidth(4, 260); S.setColumnWidth(6, 240);
 
   // ---- קישורים
@@ -124,6 +124,7 @@ function setup() {
   var def = ss.getSheetByName('Sheet1') || ss.getSheetByName('גיליון1');
   if (def && ss.getSheets().length > 3) ss.deleteSheet(def);
   ss.setActiveSheet(L);
+  clearPortalCache_();
   try { SpreadsheetApp.getUi().alert('הפורטל מוכן. עכשיו: Deploy > New deployment > Web app.'); } catch (err) {}
 }
 
@@ -152,25 +153,38 @@ function installTriggers_() {
   ScriptApp.newTrigger('onEditInstalled').forSpreadsheet(SpreadsheetApp.getActive()).onEdit().create();
 }
 
-// רץ בכל עריכה: תאריך אוטומטי, ושם המסמך נמשך מהדרייב כשמדביקים קישור בלי כותרת
+// רץ בכל עריכה: תאריך אוטומטי, ושם המסמך נמשך מהדרייב כשמדביקים קישור בלי כותרת.
+// בסוף כל עריכה מנקים את הזיכרון הזמני, כדי שהפורטל יציג את השינוי מיד.
 function onEditInstalled(e) {
-  var sh = e.range.getSheet(), r = e.range.getRow();
-  if (r < 2 || e.range.getNumRows() > 1) return;
-  if (sh.getName() === SHEET_LINKS && e.range.getColumn() === 2 && e.value) {
-    if (!sh.getRange(r, 8).getValue()) sh.getRange(r, 8).setValue(new Date());
-    if (!sh.getRange(r, 9).getValue()) sh.getRange(r, 9).setValue(0);
-    if (!sh.getRange(r, 11).getValue()) sh.getRange(r, 11, 1, 2).setValues([[0, 0]]);
-    if (!sh.getRange(r, 1).getValue()) {
-      var name = driveName_(String(e.value));
-      if (name) sh.getRange(r, 1).setValue(name);
+  var sh = e.range.getSheet(), r = e.range.getRow(), one = e.range.getNumRows() === 1 && r >= 2;
+  try {
+    if (sh.getName() === SHEET_LINKS) fillLinkRows_(sh, e.range);
+    if (one && sh.getName() === SHEET_MSGS && e.range.getColumn() === 2 && e.value && !sh.getRange(r, 1).getValue())
+      sh.getRange(r, 1).setValue(new Date());
+    if (one && sh.getName() === SHEET_REQ && e.range.getColumn() === 8) {
+      if (e.value === 'אושר') approveRequest_(sh, r);
+      else if (e.value === 'נדחה' && !sh.getRange(r, 9).getValue()) sh.getRange(r, 9).setValue('נדחה ' + fmt_(new Date(), 'dd/MM'));
+    }
+  } finally { clearPortalCache_(); }
+}
+
+// עובד גם כשמדביקים הרבה קישורים בבת אחת (עד 200 שורות; שם מהדרייב לעד 30 שורות, כדי לא לחרוג מזמן הריצה)
+function fillLinkRows_(sh, rg) {
+  if (rg.getColumn() > 2 || rg.getLastColumn() < 2) return;
+  var r0 = Math.max(rg.getRow(), 2), r1 = Math.min(rg.getLastRow(), r0 + 199);
+  if (r1 < r0) return;
+  var n = r1 - r0 + 1, AB = sh.getRange(r0, 1, n, 2).getValues(), HL = sh.getRange(r0, 8, n, 5).getValues(), changed = false, looked = 0;
+  for (var i = 0; i < n; i++) {
+    var url = String(AB[i][1] || '').trim();
+    if (!url) continue;
+    if (!HL[i][0]) { HL[i][0] = new Date(); changed = true; }
+    [1, 3, 4].forEach(function (j) { if (HL[i][j] === '') { HL[i][j] = 0; changed = true; } }); // צפיות: סה"כ, מש"קיות, מנה"דים
+    if (!AB[i][0] && looked++ < 30) {
+      var name = driveName_(url);
+      if (name) sh.getRange(r0 + i, 1).setValue(name);
     }
   }
-  if (sh.getName() === SHEET_MSGS && e.range.getColumn() === 2 && e.value && !sh.getRange(r, 1).getValue())
-    sh.getRange(r, 1).setValue(new Date());
-  if (sh.getName() === SHEET_REQ && e.range.getColumn() === 8) {
-    if (e.value === 'אושר') approveRequest_(sh, r);
-    else if (e.value === 'נדחה' && !sh.getRange(r, 9).getValue()) sh.getRange(r, 9).setValue('נדחה ' + fmt_(new Date(), 'dd/MM'));
-  }
+  if (changed) sh.getRange(r0, 8, n, 5).setValues(HL);
 }
 
 function driveId_(url) {
@@ -218,14 +232,16 @@ function importFolder() {
   if (!rows.length) { ui.alert('לא נמצאו קבצים חדשים בתיקייה (כל הקבצים כבר בגיליון).'); return; }
   rows.sort(function (a, b) { return String(a[0]).localeCompare(String(b[0]), 'he'); });
   L.getRange(L.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  clearPortalCache_();
   ui.alert('נוספו ' + rows.length + ' פריטים כטיוטה (אפורים).\nכדי לפרסם: סמנו וי למש"קיות ו/או למנה"דים.');
 }
 
 // ---------------------------------------------------------------- מונה צפיות
 // who = הקהל שמופיע בקישור שממנו נכנסו (?role=m / ?role=n). כניסה מהקישור הכללי נספרת רק בסה"כ.
 function logClick(url, who) {
+  url = String(url || '');
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return;
+  if (!lock.tryLock(10000)) return;
   try {
     var L = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LINKS);
     var n = L.getLastRow() - 1;
@@ -345,6 +361,7 @@ function onOpen() {
     .addItem('📊 דוח צפיות', 'viewsReport')
     .addItem('🔐 דוח הרשאות עריכה', 'permissionsReport')
     .addItem('🛟 גיבוי עכשיו', 'backupNow')
+    .addItem('🔄 רענון הפורטל עכשיו', 'refreshPortal')
     .addItem('✉️ טיוטת עדכון שבועי', 'weeklyDigest')
     .addSeparator()
     .addItem('התקנה מחדש (מוחק נתונים!)', 'setup')
@@ -723,7 +740,7 @@ function fileType_(url) {
   if (/\/document\//.test(url)) return 'doc';
   if (/\/forms\/|forms\.gle/.test(url)) return 'form';
   if (/\/folders\//.test(url)) return 'folder';
-  if (/drive\.google\.com\/file/.test(url)) return 'file';
+  if (/drive\.google\.com\/(file|open)/.test(url)) return 'file';
   return 'link';
 }
 
@@ -762,7 +779,8 @@ function getData_(winDays) {
   if (L && L.getLastRow() > 1) {
     var times = L.getRange(2, 16, L.getLastRow() - 1, 1).getDisplayValues();
     var rows = L.getRange(2, 1, L.getLastRow() - 1, 19).getValues().map(function (r, i) { r.time = times[i][0]; return r; }).filter(function (r) {
-      return r[0] && String(r[1] || '').trim() && aud_(r[3], r[4]);
+      // רק קישורי http(s). קישור מסוג אחר (למשל javascript:) לא יוצג בפורטל
+      return r[0] && /^https?:\/\//i.test(String(r[1] || '').trim()) && aud_(r[3], r[4]);
     });
     var updAll = st.checkDrive ? driveUpdatedAll_(rows.map(function (r) { return String(r[1]).trim(); })) : {};
     rows.forEach(function (r) {
@@ -814,6 +832,41 @@ function getData_(winDays) {
   return { title: st.title, days: st.days, links: links, msgs: msgs, cats: cats, cm: cm };
 }
 
+// ---------------------------------------------------------------- זיכרון זמני לנתוני הפורטל
+// כל כניסה לפורטל קוראת את הגיליון. עם עשרות כניסות בבת אחת זה איטי, וגוגל מגבילה ל-30 הרצות במקביל.
+// לכן הנתונים נשמרים בזיכרון ל-2 דקות, ומתנקים בכל עריכה בגיליון (או ב"רענון הפורטל" בתפריט).
+// הזיכרון מוגבל ל-100KB לערך, אז הנתונים נשמרים בחלקים.
+var DATA_CACHE_SEC = 120, CACHE_CHUNK = 40000;
+function portalData_() {
+  var c = CacheService.getScriptCache();
+  try {
+    var n = Number(c.get('pd_n'));
+    if (n > 0) {
+      var keys = [];
+      for (var i = 0; i < n; i++) keys.push('pd_' + i);
+      var got = c.getAll(keys), parts = keys.map(function (k) { return got[k]; });
+      if (parts.every(function (x) { return x != null; })) return JSON.parse(parts.join(''));
+    }
+  } catch (err) {}
+  var data = getData_(), json = JSON.stringify(data), put = {}, pos = 0, k = 0;
+  while (pos < json.length) {
+    var end = Math.min(pos + CACHE_CHUNK, json.length);
+    var code = json.charCodeAt(end - 1);
+    if (end < json.length && code >= 0xD800 && code <= 0xDBFF) end--; // לא לחתוך אימוג'י באמצע
+    put['pd_' + k++] = json.slice(pos, end);
+    pos = end;
+  }
+  if (k <= 20) { put.pd_n = String(k); try { c.putAll(put, DATA_CACHE_SEC); } catch (err) {} }
+  return data;
+}
+function clearPortalCache_() {
+  try { CacheService.getScriptCache().remove('pd_n'); } catch (err) {}
+}
+function refreshPortal() {
+  clearPortalCache_();
+  SpreadsheetApp.getUi().alert('✅ הפורטל יציג את השינויים האחרונים בכניסה הבאה.\n(שינויים בגיליון מתעדכנים לבד. זה נחוץ רק אחרי שינוי צבעים.)');
+}
+
 // ---------------------------------------------------------------- טיוטת עדכון שבועי
 // בונה נוסח מוכן להעתקה (וואטסאפ / מייל) של מה שחדש ועודכן ב-7 הימים האחרונים. לא שולח כלום.
 function weeklyDigest() {
@@ -861,7 +914,7 @@ function weeklyDigest() {
 // אייקון הפורטל (לשונית הדפדפן ומסך הבית). חייב להיות קישור ל-PNG.
 var ICON_URL = 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f309/512.png';
 function doGet(e) {
-  var data = getData_();
+  var data = portalData_();
   var role = (e && e.parameter && e.parameter.role) || 'all';
   if (['all', 'm', 'n'].indexOf(role) < 0) role = 'all';
   var json = JSON.stringify(data).replace(/</g, '\\u003c');
@@ -870,7 +923,6 @@ function doGet(e) {
   return HtmlService.createHtmlOutput(html)
     .setTitle(data.title)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-    .addMetaTag('theme-color', '#0f766e')
     .setFaviconUrl(ICON_URL)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -880,7 +932,7 @@ function escapeHtml_(s) {
 }
 
 var PAGE_ = String.raw`
-<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>__TITLE__</title><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -890,6 +942,7 @@ var PAGE_ = String.raw`
   --shadow:0 1px 2px rgba(0,0,0,.35);--shadow2:0 12px 32px rgba(0,0,0,.55)}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+body.lock{overflow:hidden}
 html{scroll-behavior:smooth}
 body{margin:0;font-family:Heebo,Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
 button,input,select,textarea{font-family:inherit}
@@ -1113,6 +1166,8 @@ body.list .acts{padding:0 8px 0 6px;align-self:center}
 .f input,.f select,.f textarea{font-size:16px!important}
 .sheet{padding-bottom:calc(22px + env(safe-area-inset-bottom))}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+/* במצב כהה, טקסט בצבע המותג מקבל גוון בהיר יותר כדי להיות קריא (בסוף, כדי לגבור על ההגדרות שלמעלה) */
+@media (prefers-color-scheme:dark){.more,.flink,.crumb button,.vt button.on,.radios input:checked+span,.ok .big,.bnav button.on,.pill:hover{color:#5eead4}}
 </style></head><body>
 <header class="hero"><div class="wrap">
   <div class="brand"><div class="logo">🌉</div><div><h1>__TITLE__<span class="who" id="who" hidden></span></h1><p class="sub">כל מה שצריך לעבודה, במקום אחד</p></div></div>
@@ -1249,6 +1304,17 @@ function norm(s){return String(s).toLowerCase().replace(/["'\x60״׳ְ-ׇ]/g,'')
 function seen(x){return role==='all'||x.a==='all'||x.a===role}
 // תג"ב: כמה ימים נשארו (לפי התאריך בדפדפן). null = אין תג"ב
 var T0=new Date();T0.setHours(0,0,0,0);
+// אם הדף נשאר פתוח: שגרה שהמועד שלה עבר עוברת למועד הבא (באותה שעה מקומית), ו"היום" מתעדכן אחרי חצות
+function roll(){
+  T0=new Date();T0.setHours(0,0,0,0);
+  var now=Date.now();
+  D.links.forEach(function(l){
+    if(!l.rec||!l.dueTs||l.dueTs>=now)return;
+    var d=new Date(l.dueTs),step=l.rec.indexOf('שבועיים')>-1?14:7;
+    while(d.getTime()<now)d.setDate(d.getDate()+step);
+    l.dueTs=d.getTime();l.due=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  });
+}
 function left(l){if(!l.due)return null;var p=l.due.split('-');return Math.round((new Date(+p[0],p[1]-1,+p[2])-T0)/864e5)}
 function past(l){return !!l.dueTs&&l.dueTs<Date.now()}
 // "למילוי" = תג"ב חד-פעמי שעוד לא עבר, או שגרה שהמועד שלה בעוד יומיים או פחות
@@ -1275,7 +1341,21 @@ function hslOf(hex){
   return [h,Math.round(s*100)];
 }
 function tone(hex,l){var x=hslOf(hex),s=x[1]<8?x[1]:Math.max(x[1],50);return 'hsl('+x[0]+','+s+'%,'+l+'%)'}
-function cvars(c){var m=CM[c]||{c:'#64748b'};return '--cc:'+tone(m.c,36)+';--cs:'+tone(m.c,93)+';--ccd:'+tone(m.c,72)+';--csd:'+tone(m.c,20)}
+// גוון טקסט קריא: מכהים (או מבהירים במצב כהה) עד ניגודיות 4.5 לפחות מול הרקע, לפי תקן הנגישות
+function lum(h,s,l){s/=100;l/=100;var k=function(n){return (n+h/30)%12},a=s*Math.min(l,1-l);
+  var f=function(n){var c=l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4)};
+  return .2126*f(0)+.7152*f(8)+.0722*f(4)}
+function readable(hex,dark){
+  var x=hslOf(hex),s=x[1]<8?x[1]:Math.max(x[1],50),bg=dark?.0107:1,l=dark?72:40;
+  for(var i=0;i<30;i++){var L=lum(x[0],s,l),r=dark?(L+.05)/(bg+.05):(bg+.05)/(L+.05);if(r>=4.6)break;l+=dark?2:-2}
+  return 'hsl('+x[0]+','+s+'%,'+l+'%)';
+}
+var TONES={};
+function cvars(c){
+  if(TONES[c])return TONES[c];
+  var m=CM[c]||{c:'#64748b'};
+  return TONES[c]='--cc:'+readable(m.c,false)+';--cs:'+tone(m.c,93)+';--ccd:'+readable(m.c,true)+';--csd:'+tone(m.c,20);
+}
 var VIEW=store('gesharim_view')==='list'?'list':'grid',SORT=store('gesharim_sort')||'sheet',FTYPE='',ARCH_OPEN=false,HRE=null;
 if(!/^(sheet|az|new|top)$/.test(SORT))SORT='sheet';
 // מיון בתוך הקטגוריות. "סדר מומלץ" = הסדר בגיליון
@@ -1345,6 +1425,7 @@ function tools(V){
   document.body.classList.toggle('list',VIEW==='list');
 }
 function render(){
+  roll();
   document.querySelectorAll('.chip').forEach(function(c){c.classList.toggle('on',c.dataset.r===role)});
   var raw=document.getElementById('q').value,q=norm(raw),words=q.split(' ').filter(String);
   HRE=makeHre(words);
@@ -1431,7 +1512,7 @@ document.querySelectorAll('.chip').forEach(function(c){c.onclick=function(){role
 // בקישור ייעודי (?role=m / ?role=n) מסתירים את בחירת הקהל. זו הסתרה בתצוגה בלבד, לא חסימת גישה.
 if(ROLE0==='all')document.getElementById('seg').hidden=false;
 else{var w=document.getElementById('who');w.textContent=ROLE0==='m'?'מש"קיות':'מנה"דים';w.hidden=false}
-document.getElementById('q').oninput=render;
+var qt;document.getElementById('q').oninput=function(){clearTimeout(qt);qt=setTimeout(render,D.links.length>80?150:0)};
 document.getElementById('pills').addEventListener('click',function(e){
   var b=e.target.closest('[data-go]');if(b)document.getElementById(b.dataset.go).scrollIntoView({behavior:'smooth',block:'start'});
 });
@@ -1481,10 +1562,13 @@ document.getElementById('out').addEventListener('click',function(e){
 
 // ---- הצעת מסמך
 // סגירה של כל החלונות: לחיצה ברקע, כפתור סגירה או Esc
+// בזמן שחלון פתוח, הדף שמאחוריו לא נגלל
+function showM(m){m.hidden=false;document.body.classList.add('lock')}
+function hideM(m){m.hidden=true;if(!document.querySelector('.modal:not([hidden])'))document.body.classList.remove('lock')}
 document.querySelectorAll('.modal').forEach(function(m){
-  m.addEventListener('click',function(e){if(e.target===m||e.target.closest('[data-close]'))m.hidden=true});
+  m.addEventListener('click',function(e){if(e.target===m||e.target.closest('[data-close]'))hideM(m)});
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape')document.querySelectorAll('.modal').forEach(function(m){m.hidden=true})});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')document.querySelectorAll('.modal').forEach(hideM)});
 
 // ---- דיווח על טעות
 var rm=document.getElementById('rmodal'),rf=document.getElementById('rf'),RU='';
@@ -1493,7 +1577,7 @@ function openReport(u){
   rf.reset();rf.name.value=store('gesharim_name')||'';
   document.querySelectorAll('#rquick button').forEach(function(b){b.classList.remove('on')});
   document.getElementById('rdoc').textContent=BYU[u]?BYU[u].t:'';
-  rm.hidden=false;
+  showM(rm);
 }
 document.getElementById('rquick').addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
@@ -1521,7 +1605,7 @@ document.addEventListener('click',function(e){
   if(e.target.closest('[data-a2hs]')){
     var ios=document.getElementById('h-ios'),and=document.getElementById('h-and');
     ios.parentNode.insertBefore(IOS?ios:and,IOS?and:ios);
-    document.getElementById('amodal').hidden=false;
+    showM(document.getElementById('amodal'));
   }
   if(e.target.closest('[data-tipx]')){document.getElementById('tip').hidden=true;store('gesharim_tip','1')}
 });
@@ -1533,7 +1617,7 @@ function openForm(){
   sf.hidden=false;document.getElementById('sok').hidden=true;document.getElementById('serr').hidden=true;
   sf.name.value=store('gesharim_name')||'';
   var r=sf.querySelector('input[name=aud][value="'+(ROLE0==='all'?'all':ROLE0)+'"]');if(r)r.checked=true;
-  modal.hidden=false;setTimeout(function(){(sf.name.value?sf.title:sf.name).focus()},50);
+  showM(modal);setTimeout(function(){(sf.name.value?sf.title:sf.name).focus()},50);
 }
 document.getElementById('fab').onclick=openForm;
 sf.addEventListener('submit',function(e){

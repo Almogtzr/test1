@@ -1,0 +1,12 @@
+{
+  "name": "portal-gesharim-tests",
+  "private": true,
+  "description": "בדיקות לפורטל גשרים מדמ\"ח",
+  "scripts": {
+    "test": "node server.test.js ../פורטל_גשרים_מדמח.gs && node build.js ../פורטל_גשרים_מדמח.gs && node a11y.js && node users.js 40 35",
+    "server": "node server.test.js ../פורטל_גשרים_מדמח.gs",
+    "users": "node build.js ../פורטל_גשרים_מדמח.gs && node users.js 40 35",
+    "perf": "node build.js ../פורטל_גשרים_מדמח.gs && node perf.js"
+  },
+  "devDependencies": { "axe-core": "4.10.2", "playwright": "1.49.1" }
+}
