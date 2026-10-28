@@ -21,6 +21,9 @@
  *   בשגרה דו-שבועית ממלאים ב-M את המועד הקרוב, וממנו נספרים השבועיים. השעה (P) חלה גם על תג"ב חד-פעמי.
  * אחראי (עמודה Q): בחירה מתוך רשימת האחראים בהגדרות, עמודה F. מוצג בכרטיס בפורטל.
  * דוח הרשאות (בתפריט): מי יכול לערוך כל מסמך מפורסם, ואיפה השיתוף פתוח מדי או סגור מדי.
+ * תת-קטגוריה (R): כותרת משנה בתוך הקטגוריה, למשל "שנה א'". בארכיון (S): המסמך יורד לאזור הארכיון בתחתית הפורטל.
+ * דיווח על טעות: כפתור בכל כרטיס. הדיווח נכנס ללשונית "דיווחים" ונשלח אליך מייל.
+ * גיבוי שבועי: עותק של הגיליון כל שישי לתיקייה "פורטל גשרים - גיבויים" (נשמרים 8 אחרונים).
  * אין צורך לפרוס מחדש, אלא אם משנים את הקוד.
  */
 
@@ -57,7 +60,7 @@ function setup() {
   // ---- קישורים
   var L = ss.getSheetByName(SHEET_LINKS) || ss.insertSheet(SHEET_LINKS);
   L.clear();
-  var lh = ['כותרת', 'קישור', 'קטגוריה', 'מש"קיות ✓', 'מנה"דים ✓', 'תיאור קצר', '📌 מוצמד', 'תאריך הוספה', 'צפיות', 'צפייה אחרונה', 'צפיות מש"קיות', 'צפיות מנה"דים', 'תג"ב (למילוי עד)', 'שגרה', 'יום', 'עד שעה', '👤 אחראי'];
+  var lh = ['כותרת', 'קישור', 'קטגוריה', 'מש"קיות ✓', 'מנה"דים ✓', 'תיאור קצר', '📌 מוצמד', 'תאריך הוספה', 'צפיות', 'צפייה אחרונה', 'צפיות מש"קיות', 'צפיות מנה"דים', 'תג"ב (למילוי עד)', 'שגרה', 'יום', 'עד שעה', '👤 אחראי', 'תת-קטגוריה', '🗄️ בארכיון'];
   L.getRange(1, 1, 1, lh.length).setValues([lh]);
   var B = true, N = false; // B = לשניהם, N = למנה"דים בלבד
   var seed = [
@@ -74,7 +77,7 @@ function setup() {
     ['ניטור תצפיות תשפ"ז', 'https://docs.google.com/spreadsheets/d/1gXpKq_dm5KVliVUBL3Hfe2hOsENDb_aHWG6toYVYCYg', 'תצפיות ומשוב', N, 'מילוי שורה אחרי כל תצפית', false],
     ['טמפלייט חוו"ד תצפית', 'https://docs.google.com/document/d/187XIHxDYmpOK_mU3l9G0WDwqCbnQ1cQm6TGyps6GdUQ', 'תצפיות ומשוב', N, '', false]
   ];
-  var rows = seed.map(function (r) { return [r[0], r[1], r[2], r[3], true, r[4], r[5], today, 0, '', 0, 0, '', '', '', '', '']; });
+  var rows = seed.map(function (r) { return [r[0], r[1], r[2], r[3], true, r[4], r[5], today, 0, '', 0, 0, '', '', '', '', '', '', false]; });
   L.getRange(2, 1, rows.length, lh.length).setValues(rows);
   styleHeader_(L, lh.length);
   L.setColumnWidth(1, 260); L.setColumnWidth(2, 300); L.setColumnWidth(3, 150); L.setColumnWidth(6, 280);
@@ -86,13 +89,14 @@ function setup() {
   L.getRange(1, 9, 1, 4).setBackground('#475569');
   // שורה בלי אף וי בקהל = טיוטה: נצבעת אפור ולא מופיעה בפורטל
   var draft = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($A2<>"",NOT($D2),NOT($E2))')
-    .setBackground('#f1f5f9').setFontColor('#94a3b8').setRanges([L.getRange('A2:Q')]).build();
+    .setBackground('#f1f5f9').setFontColor('#94a3b8').setRanges([L.getRange('A2:S')]).build();
   var fresh = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($H2<>"",TODAY()-$H2<=INDIRECT("הגדרות!B3"))')
     .setBackground('#ecfdf5').setRanges([L.getRange('A2:A')]).build();
   L.setConditionalFormatRules([draft, fresh]);
   dueColumn_(L); // אחרי הכללים הקודמים, כי הוא מוסיף עליהם
   routineColumns_(L);
   ownerColumn_(L, S);
+  extraColumns_(L);
 
   // ---- הודעות
   var M = ss.getSheetByName(SHEET_MSGS) || ss.insertSheet(SHEET_MSGS);
@@ -109,7 +113,9 @@ function setup() {
   M.getRange('G2:G').setNumberFormat('dd/MM/yyyy');
 
   installTriggers_();
+  installBackupTrigger_();
   ensureRequests_();
+  ensureIssues_();
 
   var def = ss.getSheetByName('Sheet1') || ss.getSheetByName('גיליון1');
   if (def && ss.getSheets().length > 3) ss.deleteSheet(def);
@@ -198,12 +204,12 @@ function importFolder() {
   ensureColumns_();
   var today = new Date(), rows = [];
   var subs = folder.getFolders();
-  while (subs.hasNext()) { var f = subs.next(); if (!have[f.getId()]) rows.push([f.getName(), f.getUrl(), cat, false, false, 'תיקייה', false, today, 0, '', 0, 0, '', '', '', '', '']); }
+  while (subs.hasNext()) { var f = subs.next(); if (!have[f.getId()]) rows.push([f.getName(), f.getUrl(), cat, false, false, 'תיקייה', false, today, 0, '', 0, 0, '', '', '', '', '', '', false]); }
   var files = folder.getFiles();
   while (files.hasNext()) {
     var x = files.next();
     if (have[x.getId()] || x.getMimeType() === MimeType.SHORTCUT) continue;
-    rows.push([x.getName(), x.getUrl(), cat, false, false, '', false, today, 0, '', 0, 0, '', '', '', '', '']);
+    rows.push([x.getName(), x.getUrl(), cat, false, false, '', false, today, 0, '', 0, 0, '', '', '', '', '', '', false]);
   }
   if (!rows.length) { ui.alert('לא נמצאו קבצים חדשים בתיקייה (כל הקבצים כבר בגיליון).'); return; }
   rows.sort(function (a, b) { return String(a[0]).localeCompare(String(b[0]), 'he'); });
@@ -287,40 +293,54 @@ function permissionsReport() {
   ss.setActiveSheet(R);
 }
 
+var DEAD_DAYS = 90;
 function viewsReport() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var L = ss.getSheetByName(SHEET_LINKS);
   var n = L.getLastRow() - 1;
   if (n < 1) return;
   ensureColumns_();
-  var v = L.getRange(2, 1, n, 12).getValues().filter(function (r) { return r[0]; })
-    .map(function (r) { return [r[0], r[2], Number(r[8]) || 0, Number(r[10]) || 0, Number(r[11]) || 0, r[9] || '', aud_(r[3], r[4]) ? 'מפורסם' : 'טיוטה']; })
-    .sort(function (a, b) { return b[2] - a[2]; });
+  // רדום = מפורסם יותר מ-90 יום, ואף אחד לא פתח אותו ב-90 הימים האחרונים. מועמד לארכיון.
+  var now = Date.now(), DEAD = DEAD_DAYS * 86400000;
+  var v = L.getRange(2, 1, n, 19).getValues().filter(function (r) { return r[0]; })
+    .map(function (r) {
+      var pub = aud_(r[3], r[4]), arch = r[18] === true;
+      var old = r[7] instanceof Date && now - r[7].getTime() > DEAD;
+      var seenRecently = r[9] instanceof Date && now - r[9].getTime() <= DEAD;
+      var st = arch ? 'בארכיון' : pub ? 'מפורסם' : 'טיוטה';
+      var dead = pub && !arch && old && !seenRecently ? '💤 אף אחד לא פתח ' + DEAD_DAYS + ' יום. לשקול ארכיון' : '';
+      return [r[0], r[2], Number(r[8]) || 0, Number(r[10]) || 0, Number(r[11]) || 0, r[9] || '', st, dead];
+    })
+    .sort(function (a, b) { return (b[7] ? 1 : 0) - (a[7] ? 1 : 0) || b[2] - a[2]; });
   if (!v.length) return;
   var R = ss.getSheetByName('דוח צפיות') || ss.insertSheet('דוח צפיות');
   R.clear();
-  R.getRange(1, 1, 1, 7).setValues([['מסמך', 'קטגוריה', 'צפיות (סה"כ)', 'מש"קיות', 'מנה"דים', 'צפייה אחרונה', 'סטטוס']]);
-  R.getRange(2, 1, v.length, 7).setValues(v);
+  R.getRange(1, 1, 1, 8).setValues([['מסמך', 'קטגוריה', 'צפיות (סה"כ)', 'מש"קיות', 'מנה"דים', 'צפייה אחרונה', 'סטטוס', '💤 רדום']]);
+  R.getRange(2, 1, v.length, 8).setValues(v);
   R.getRange('F2:F').setNumberFormat('dd/MM/yyyy HH:mm');
-  styleHeader_(R, 7);
-  R.setColumnWidth(1, 300);
-  R.getRange(1, 9).setValue('מש"קיות / מנה"דים = כניסות דרך הקישור הייעודי. כניסה מהקישור הכללי נספרת רק בסה"כ.').setFontColor('#64748b');
+  styleHeader_(R, 8);
+  R.setColumnWidth(1, 300); R.setColumnWidth(8, 300);
+  R.getRange(1, 10).setValue('מש"קיות / מנה"דים = כניסות דרך הקישור הייעודי. כניסה מהקישור הכללי נספרת רק בסה"כ.').setFontColor('#64748b');
+  var dead = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$H2<>""')
+    .setBackground('#ffedd5').setRanges([R.getRange('A2:H')]).build();
   var zero = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($A2<>"",$C2=0,$G2="מפורסם")')
-    .setBackground('#fef2f2').setRanges([R.getRange('A2:G')]).build();
-  R.setConditionalFormatRules([zero]);
+    .setBackground('#fef2f2').setRanges([R.getRange('A2:H')]).build();
+  R.setConditionalFormatRules([dead, zero]);
   ss.setActiveSheet(R);
 }
 
 // פונקציות שמופעלות מהתפריט חייבות שם בלי קו תחתון בסוף (פונקציה עם _ היא פרטית ב-Apps Script)
 function onOpen() {
-  var pending = 0;
-  try { ensureColumns_(); pending = pendingCount_(); } catch (err) {}
+  var pending = 0, issues = 0;
+  try { ensureColumns_(); pending = pendingCount_(); issues = openIssuesCount_(); } catch (err) {}
   SpreadsheetApp.getUi().createMenu('🌉 פורטל')
     .addItem('פתיחת הפורטל', 'openPortal')
     .addItem('📨 בקשות ממתינות' + (pending ? ' (' + pending + ')' : ''), 'openRequests')
+    .addItem('🛠️ דיווחים על טעויות' + (issues ? ' (' + issues + ')' : ''), 'openIssues')
     .addItem('📥 ייבוא קבצים מתיקייה בדרייב', 'importFolder')
     .addItem('📊 דוח צפיות', 'viewsReport')
     .addItem('🔐 דוח הרשאות עריכה', 'permissionsReport')
+    .addItem('🛟 גיבוי עכשיו', 'backupNow')
     .addItem('✉️ טיוטת עדכון שבועי', 'weeklyDigest')
     .addSeparator()
     .addItem('התקנה מחדש (מוחק נתונים!)', 'setup')
@@ -342,6 +362,7 @@ function ensureColumns_() {
     S.setColumnWidth(6, 240);
   }
   if (L && S && !L.getRange(1, 17).getValue()) ownerColumn_(L, S);
+  if (L && !L.getRange(1, 18).getValue()) extraColumns_(L);
   if (S && !S.getRange(5, 1).getValue()) S.getRange(5, 1).setValue('קישור לפורטל (מדביקים אחרי הפריסה)');
 }
 
@@ -371,10 +392,10 @@ function routineColumns_(L) {
   L.getRange(1, 16).setNote('למשל 14:00. בלי שעה = עד סוף היום. השעה חלה גם על תג"ב חד-פעמי.');
 }
 
-// המועד הקרוב למילוי. r = שורה מלשונית הקישורים, ו-r[17] = השעה כפי שהיא מוצגת בגיליון.
+// המועד הקרוב למילוי. r = שורה מלשונית הקישורים, timeText = השעה (P) כפי שהיא מוצגת בגיליון.
 // שגרה: מתחילים מהתג"ב (או מתאריך ההוספה), מזיזים ליום שנבחר, ומוסיפים 7/14 יום עד שמגיעים לעתיד.
-function nextDue_(r, now) {
-  var tm = String(r[17] || '').match(/(\d{1,2}):(\d{2})/), h = tm ? Number(tm[1]) : 23, mi = tm ? Number(tm[2]) : 59;
+function nextDue_(r, now, timeText) {
+  var tm = String(timeText || '').match(/(\d{1,2}):(\d{2})/), h = tm ? Number(tm[1]) : 23, mi = tm ? Number(tm[2]) : 59;
   var rec = String(r[13] || ''), period = rec.indexOf('שבועיים') > -1 ? 14 : rec.indexOf('שבוע') > -1 ? 7 : 0;
   var base = r[12] instanceof Date ? r[12] : null;
   if (!period && !base) return null;
@@ -393,6 +414,19 @@ function ownerColumn_(L, S) {
   L.getRange(1, 17).setValue('👤 אחראי').setFontWeight('bold').setFontColor('#ffffff').setBackground('#0f766e');
   L.setColumnWidth(17, 130);
   L.getRange('Q2:Q').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInRange(S.getRange('F2:F40'), true).build());
+}
+
+// R תת-קטגוריה (טקסט חופשי) | S בארכיון (וי). שורה בארכיון נצבעת אפור ומחוקה בגיליון.
+function extraColumns_(L) {
+  L.getRange(1, 18, 1, 2).setValues([['תת-קטגוריה', '🗄️ בארכיון']]).setFontWeight('bold').setFontColor('#ffffff').setBackground('#0f766e');
+  L.getRange(1, 19).setBackground('#475569');
+  L.setColumnWidth(18, 150);
+  L.getRange(1, 18).setNote('כותרת משנה בתוך הקטגוריה, למשל "שנה א\'" או "מפגשים 1-6". הסדר בפורטל לפי הסדר בגיליון.');
+  L.getRange(1, 19).setNote('מסמך שהוחלף או כבר לא בשימוש. יורד לאזור "ארכיון" בתחתית הפורטל, ועדיין נמצא בחיפוש.');
+  L.getRange('S2:S').insertCheckboxes();
+  var arch = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$S2=TRUE')
+    .setFontColor('#94a3b8').setStrikethrough(true).setRanges([L.getRange('A2:A')]).build();
+  L.setConditionalFormatRules(L.getConditionalFormatRules().concat([arch]));
 }
 
 function portalUrl_() {
@@ -548,6 +582,107 @@ function approveRequest_(R, r) {
 function authorize() {
   MailApp.getRemainingDailyQuota();
   ensureRequests_();
+  ensureIssues_();
+  installBackupTrigger_();
+}
+
+// ---------------------------------------------------------------- דיווח על טעות במסמך
+// עמודות "דיווחים": תאריך | מסמך | קישור | אחראי | מדווח/ת | מה הבעיה | סטטוס
+var SHEET_ISSUES = 'דיווחים';
+var MAX_REPORTS_PER_DAY = 60;
+
+function ensureIssues_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var R = ss.getSheetByName(SHEET_ISSUES);
+  if (R) return R;
+  R = ss.insertSheet(SHEET_ISSUES);
+  var h = ['תאריך', 'מסמך', 'קישור', 'אחראי', 'מדווח/ת', 'מה הבעיה', 'סטטוס'];
+  R.getRange(1, 1, 1, h.length).setValues([h]);
+  styleHeader_(R, h.length);
+  R.getRange(1, 7).setBackground('#b45309');
+  R.setColumnWidth(2, 240); R.setColumnWidth(3, 220); R.setColumnWidth(6, 380);
+  R.getRange('A2:A').setNumberFormat('dd/MM/yyyy HH:mm');
+  dropdown_(R, 'G2:G', ['פתוח', 'טופל']);
+  var rule = function (v, bg, fg) {
+    return SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$G2="' + v + '"').setBackground(bg).setFontColor(fg).setRanges([R.getRange('A2:G')]).build();
+  };
+  R.setConditionalFormatRules([rule('פתוח', '#fff7ed', '#000000'), rule('טופל', '#f1f5f9', '#94a3b8')]);
+  return R;
+}
+
+function openIssuesCount_() {
+  var R = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ISSUES);
+  if (!R || R.getLastRow() < 2) return 0;
+  return R.getRange(2, 7, R.getLastRow() - 1, 1).getValues().filter(function (x) { return x[0] === 'פתוח'; }).length;
+}
+
+function openIssues() {
+  SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(ensureIssues_());
+}
+
+// נקרא מהפורטל. מקבל רק מסמך שקיים בפורטל.
+function reportIssue(f) {
+  f = f || {};
+  if (f.website) return { ok: true };
+  var msg = clean_(f.msg, 500), name = clean_(f.name, 60), url = String(f.u || '').trim();
+  if (msg.length < 3) return { ok: false, msg: 'נא לכתוב בקצרה מה הבעיה.' };
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { ok: false, msg: 'עומס רגעי. נסו שוב בעוד דקה.' };
+  var title = '', owner = '';
+  try {
+    var props = PropertiesService.getScriptProperties(), key = 'rep_' + fmt_(new Date(), 'yyyyMMdd');
+    var count = Number(props.getProperty(key)) || 0;
+    if (count >= MAX_REPORTS_PER_DAY) return { ok: false, msg: 'הגענו למכסת הדיווחים היומית. נסו שוב מחר.' };
+    var L = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LINKS);
+    var rows = L.getLastRow() > 1 ? L.getRange(2, 1, L.getLastRow() - 1, 17).getValues() : [];
+    var hit = rows.filter(function (r) { return String(r[1]).trim() === url; })[0];
+    if (!hit) return { ok: false, msg: 'המסמך לא נמצא בפורטל.' };
+    title = String(hit[0]); owner = String(hit[16] || '');
+    var R = ensureIssues_();
+    R.getRange(R.getLastRow() + 1, 1, 1, 7).setValues([[new Date(), clean_(title, 200), url, owner, name, msg, 'פתוח']]);
+    props.setProperty(key, String(count + 1));
+  } finally { lock.releaseLock(); }
+  try {
+    var me = Session.getEffectiveUser().getEmail();
+    if (me) MailApp.sendEmail({
+      to: me,
+      subject: '🛠️ דיווח על טעות: ' + title,
+      htmlBody: '<div dir="rtl" style="font-family:Arial;font-size:15px;line-height:1.6">' +
+        '<b>' + escapeHtml_(String(name || 'מישהו מהצוות').replace(/^'/, '')) + '</b> דיווח/ה על בעיה ב-<a href="' + escapeHtml_(url) + '">' + escapeHtml_(title) + '</a>' +
+        (owner ? ' (אחראי: ' + escapeHtml_(owner) + ')' : '') + ':<br><br>' + escapeHtml_(msg.replace(/^'/, '')) +
+        '<br><br><a href="' + SpreadsheetApp.getActiveSpreadsheet().getUrl() + '">פתיחת הגיליון</a> > לשונית "דיווחים"</div>'
+    });
+  } catch (err) {}
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------- גיבוי שבועי
+var BACKUP_FOLDER = 'פורטל גשרים - גיבויים';
+var BACKUPS_TO_KEEP = 8;
+
+function installBackupTrigger_() {
+  var has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'weeklyBackup'; });
+  if (!has) ScriptApp.newTrigger('weeklyBackup').timeBased().onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(3).create();
+}
+
+function backupNow() {
+  var name = weeklyBackup();
+  try { SpreadsheetApp.getUi().alert('✅ נשמר גיבוי: ' + name + '\nבתיקייה "' + BACKUP_FOLDER + '" בדרייב שלך.'); } catch (err) {}
+}
+
+// עותק של הגיליון לתיקיית הגיבויים, ומחיקה (לפח) של גיבויים ישנים מעבר ל-8 האחרונים
+function weeklyBackup() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var props = PropertiesService.getScriptProperties(), folder = null;
+  try { folder = DriveApp.getFolderById(props.getProperty('backupFolder')); } catch (err) {}
+  if (!folder || folder.isTrashed()) { folder = DriveApp.createFolder(BACKUP_FOLDER); props.setProperty('backupFolder', folder.getId()); }
+  var name = 'גיבוי ' + ss.getName() + ' ' + fmt_(new Date(), 'yyyy-MM-dd HH:mm');
+  DriveApp.getFileById(ss.getId()).makeCopy(name, folder);
+  var files = [], it = folder.getFiles();
+  while (it.hasNext()) { var f = it.next(); if (f.getName().indexOf('גיבוי ') === 0) files.push(f); }
+  files.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  files.slice(BACKUPS_TO_KEEP).forEach(function (f) { f.setTrashed(true); });
+  return name;
 }
 
 // ---------------------------------------------------------------- נתונים
@@ -611,7 +746,7 @@ function getData_(winDays) {
   var L = ss.getSheetByName(SHEET_LINKS);
   if (L && L.getLastRow() > 1) {
     var times = L.getRange(2, 16, L.getLastRow() - 1, 1).getDisplayValues();
-    var rows = L.getRange(2, 1, L.getLastRow() - 1, 17).getValues().map(function (r, i) { r.push(times[i][0]); return r; }).filter(function (r) {
+    var rows = L.getRange(2, 1, L.getLastRow() - 1, 19).getValues().map(function (r, i) { r.time = times[i][0]; return r; }).filter(function (r) {
       return r[0] && String(r[1] || '').trim() && aud_(r[3], r[4]);
     });
     var updAll = st.checkDrive ? driveUpdatedAll_(rows.map(function (r) { return String(r[1]).trim(); })) : {};
@@ -619,14 +754,14 @@ function getData_(winDays) {
       var url = String(r[1]).trim(), a = aud_(r[3], r[4]);
       var added = r[7] instanceof Date ? r[7].getTime() : null;
       var upd = updAll[url] || null;
-      var isNew = added && now - added <= win, nd = nextDue_(r, now);
+      var isNew = added && now - added <= win, nd = r[18] === true ? null : nextDue_(r, now, r.time);
       links.push({
         t: String(r[0]), u: url, c: String(r[2] || 'כללי'), a: a, d: String(r[5] || ''),
         p: r[6] === true, type: fileType_(url),
         isNew: !!isNew, isUpd: !isNew && upd && now - upd <= win,
         when: Math.max(added || 0, upd || 0),
         due: nd ? fmt_(nd.at, 'yyyy-MM-dd') : '', dueTs: nd ? nd.at.getTime() : 0, dueT: nd ? nd.time : '', rec: nd ? nd.rec : '',
-        o: String(r[16] || '').trim()
+        o: String(r[16] || '').trim(), s: String(r[17] || '').trim(), x: r[18] === true, v: Number(r[8]) || 0
       });
     });
   }
@@ -660,7 +795,7 @@ function weeklyDigest() {
   var data = getData_(7), url = portalUrl_(), weekAgo = Date.now() - 7 * 86400000;
   var NAME = { m: 'מש"קיות', n: 'מנה"דים' };
   function text(who) {
-    var mine = function (x) { return x.a === 'all' || x.a === who; };
+    var mine = function (x) { return !x.x && (x.a === 'all' || x.a === who); };
     var links = data.links.filter(mine).filter(function (l) { return l.isNew || l.isUpd; })
       .sort(function (a, b) { return b.when - a.when; });
     var msgs = data.msgs.filter(mine).filter(function (m) { return m.ts >= weekAgo; });
@@ -698,6 +833,8 @@ function weeklyDigest() {
 }
 
 // ---------------------------------------------------------------- אפליקציית הרשת
+// אייקון הפורטל (לשונית הדפדפן ומסך הבית). חייב להיות קישור ל-PNG.
+var ICON_URL = 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f309/512.png';
 function doGet(e) {
   var data = getData_();
   var role = (e && e.parameter && e.parameter.role) || 'all';
@@ -707,7 +844,9 @@ function doGet(e) {
   var html = PAGE_.replace('__DATA__', function () { return json; }).replace('__ROLE__', role).replace(/__TITLE__/g, function () { return title; });
   return HtmlService.createHtmlOutput(html)
     .setTitle(data.title)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+    .addMetaTag('theme-color', '#0f766e')
+    .setFaviconUrl(ICON_URL)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -716,7 +855,7 @@ function escapeHtml_(s) {
 }
 
 var PAGE_ = String.raw`
-<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8">
+<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -749,7 +888,32 @@ h1{margin:0;font-size:clamp(23px,4.2vw,34px);font-weight:800;letter-spacing:-.02
 .chip{border:0;background:none;color:#fff;opacity:.85;border-radius:999px;padding:7px 16px;font-size:14px;font-weight:600;cursor:pointer}
 .chip.on{background:#fff;color:var(--brand);opacity:1;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
-/* ---- חיפוש וניווט */
+/* ---- חיפוש, סרגל כלים וניווט */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.tools{display:flex;gap:8px;align-items:center;margin-top:12px}
+.sel{position:relative;flex:1;min-width:0;max-width:220px}
+.sel select{width:100%;appearance:none;-webkit-appearance:none;font-size:16px;padding:9px 12px 9px 30px;border:1px solid var(--line);border-radius:12px;text-overflow:ellipsis;background:var(--surface);color:var(--ink);cursor:pointer;box-shadow:var(--shadow)}
+.sel:after{content:"▾";position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:12px}
+.vt{display:flex;gap:2px;margin-inline-start:auto;padding:3px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
+.vt button{width:38px;height:36px;display:grid;place-items:center;border:0;border-radius:9px;background:none;color:var(--muted);cursor:pointer}
+.vt button svg{width:18px;height:18px}
+.vt button.on{background:var(--soft);color:var(--brand)}
+/* פירורי הלחם צפים מתחת לשורת הקטגוריות, כדי שהופעתם לא תזיז את התוכן */
+.nav .wrap{position:relative}
+.crumb{position:absolute;top:100%;right:0;left:0;padding:0 16px 6px;display:flex;align-items:center;gap:6px;height:30px;opacity:0;pointer-events:none;font-size:13px;color:var(--muted);transition:opacity .15s;white-space:nowrap;
+  background:var(--bg);border-bottom:1px solid var(--line)}
+.crumb.show{opacity:1;pointer-events:auto}
+.crumb b{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.crumb button{border:0;background:none;color:var(--brand);font-size:13px;font-weight:600;cursor:pointer;padding:0}
+.pill.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.pill.on small{color:rgba(255,255,255,.8)}
+mark{background:#fde68a;color:inherit;border-radius:3px;padding:0 1px}
+@media (prefers-color-scheme:dark){mark{background:rgba(250,204,21,.35)}}
+.tip{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;border-radius:14px;background:var(--soft);color:var(--brand);font-size:14px;font-weight:500}
+.tip span{flex:1}
+@media (prefers-color-scheme:dark){.tip{color:#5eead4}.tip button{color:#5eead4}}
+.tip button{border:0;background:var(--surface);color:var(--brand);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
+.tip .tipx{background:none;padding:4px 6px;font-size:18px;color:var(--muted)}
 .search{margin-top:-30px;position:relative;z-index:3}
 .box{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow2);padding:0 18px;color:var(--muted)}
 .box svg{width:20px;height:20px;flex:0 0 auto}
@@ -773,7 +937,18 @@ h1{margin:0;font-size:clamp(23px,4.2vw,34px);font-weight:800;letter-spacing:-.02
 .msg.urgent{border-inline-start-color:#ef4444;background:color-mix(in srgb,#ef4444 9%,var(--surface))}
 
 /* ---- אזורים וכרטיסים */
-.sec{margin-top:30px;scroll-margin-top:66px}
+.sec{margin-top:30px;scroll-margin-top:96px}
+.subh{display:flex;align-items:center;gap:8px;margin:18px 2px 10px;font-size:14.5px;font-weight:700;color:var(--muted);scroll-margin-top:96px}
+.subh:after{content:"";flex:1;height:1px;background:var(--line)}
+.subh span{font-size:11.5px;font-weight:600;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:0 7px}
+.sec .grid+.subh{margin-top:22px}
+.archt{display:flex;align-items:center;gap:10px;width:100%;border:1px dashed var(--line);background:none;color:var(--muted);border-radius:14px;padding:12px 14px;font-size:16px;font-weight:700;cursor:pointer;text-align:start}
+.archt .hi{width:30px;height:30px;border-radius:10px;background:var(--surface2);display:grid;place-items:center}
+.archt .chev{margin-inline-start:auto}
+.archt .n{font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 9px}
+.archnote{color:var(--muted);font-size:13.5px;margin:10px 2px}
+.cw.old{opacity:.75}
+.tag.arch{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
 h2{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:700;margin:0 0 14px;letter-spacing:-.01em}
 h2 .hi{width:34px;height:34px;border-radius:11px;background:var(--soft);display:grid;place-items:center;font-size:17px}
 h2 .n{font-size:12px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 9px}
@@ -813,7 +988,7 @@ a.card:focus-visible{box-shadow:inset 0 0 0 2px var(--brand2)}
 footer{color:var(--muted);font-size:12.5px;text-align:center;padding:40px 16px 110px}
 
 /* ---- הצעת מסמך */
-.fab{position:fixed;right:20px;bottom:20px;z-index:20;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:14px 20px 14px 22px;background:linear-gradient(135deg,#0f766e,#1e3a8a);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 12px 28px rgba(15,118,110,.38);transition:transform .15s}
+.fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:20;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:14px 20px 14px 22px;background:linear-gradient(135deg,#0f766e,#1e3a8a);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 12px 28px rgba(15,118,110,.38);transition:transform .15s}
 .fab:hover{transform:translateY(-2px)}
 .fab svg{width:20px;height:20px}
 .modal{position:fixed;inset:0;z-index:30;background:rgba(2,6,23,.55);display:flex;align-items:flex-end;justify-content:center;animation:fade .2s}
@@ -846,6 +1021,34 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;padding:40px 16px 1
 #toast{position:fixed;bottom:88px;left:50%;transform:translate(-50%,10px);z-index:40;background:#0b1324;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @media (max-width:480px){.fab span{display:none}.fab{padding:16px}}
+.totop{position:fixed;left:20px;bottom:calc(24px + env(safe-area-inset-bottom));z-index:19;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center;box-shadow:var(--shadow2);cursor:pointer;opacity:0;pointer-events:none;transform:translateY(10px);transition:.2s}
+.totop.show{opacity:1;pointer-events:auto;transform:none}
+.totop svg{width:20px;height:20px}
+.flink{margin-top:8px;border:0;background:none;color:var(--brand);font-size:13px;font-weight:600;cursor:pointer}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.quick button{border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13.5px;cursor:pointer}
+.quick button.on{border-color:var(--brand);background:var(--soft);color:var(--brand);font-weight:600}
+.howto{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:14px}
+.howto ol{margin:8px 0 0;padding-inline-start:20px;line-height:1.9}
+.k{display:inline-block;background:var(--surface2);border:1px solid var(--line);border-radius:7px;padding:0 7px;font-weight:600}
+
+/* ---- תצוגת רשימה */
+body.list .grid{grid-template-columns:1fr;gap:8px}
+body.list .cw{flex-direction:row;align-items:center;animation:none}
+body.list a.card{padding:10px 14px;align-items:center;gap:12px}
+body.list .ic{flex-basis:36px;height:36px;border-radius:10px}
+body.list .ic svg{width:19px;height:19px}
+body.list .dd{-webkit-line-clamp:1}
+body.list .meta{margin-top:4px}
+body.list .acts{padding:0 8px 0 6px;align-self:center}
+@media (max-width:600px){body.list .cw{flex-direction:column;align-items:stretch}body.list .acts{padding:0 6px 4px}body.list .dd{display:none}}
+
+/* ---- נייד ומגע */
+@media (max-width:480px){.hero{padding:22px 0 58px}.stats{margin-top:14px}.logo{flex-basis:44px;height:44px;font-size:24px}.sec{margin-top:24px}h2{font-size:17.5px}}
+@media (hover:none){.cw:hover{transform:none;box-shadow:var(--shadow);border-color:var(--line)}.fab:hover{transform:none}}
+@media (pointer:coarse){.act{width:42px;height:42px}.pill{padding:8px 14px}}
+.f input,.f select,.f textarea{font-size:16px!important}
+.sheet{padding-bottom:calc(22px + env(safe-area-inset-bottom))}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
 </style></head><body>
 <header class="hero"><div class="wrap">
@@ -854,9 +1057,20 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;padding:40px 16px 1
   <div class="seg" id="seg" hidden><button class="chip" data-r="all">הכל</button><button class="chip" data-r="m">מש"קיות</button><button class="chip" data-r="n">מנה"דים</button></div>
 </div></header>
 <div class="wrap search"><label class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="חיפוש מסמך, נושא או קטגוריה..." autocomplete="off" aria-label="חיפוש"></label></div>
-<div class="nav"><div class="wrap"><div class="pills" id="pills"></div></div></div>
-<main class="wrap"><div id="msgs"></div><div id="out"></div></main>
-<footer>הפורטל מתעדכן אוטומטית · נבנה עבור צוות גשרים מדמ"ח · המרכז לחינוך סייבר</footer>
+<div class="wrap tools">
+  <label class="sel"><span class="sr">סוג קובץ</span><select id="ftype" aria-label="סינון לפי סוג קובץ"></select></label>
+  <label class="sel"><span class="sr">מיון</span><select id="fsort" aria-label="מיון בתוך הקטגוריות">
+    <option value="sheet">סדר מומלץ</option><option value="az">א-ב</option><option value="new">חדש ביותר</option><option value="top">הכי נצפה</option></select></label>
+  <div class="vt" role="group" aria-label="תצוגה">
+    <button type="button" data-view="grid" title="כרטיסים" aria-label="תצוגת כרטיסים"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button>
+    <button type="button" data-view="list" title="רשימה" aria-label="תצוגת רשימה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg></button>
+  </div>
+</div>
+<div class="nav"><div class="wrap"><div class="pills" id="pills"></div><div class="crumb" id="crumb"></div></div></div>
+<main class="wrap"><div class="tip" id="tip" hidden><span>📲 שמרו את הפורטל במסך הבית, ותמיד יהיה בהישג יד</span><button type="button" data-a2hs>איך?</button><button type="button" class="tipx" data-tipx aria-label="סגירה">×</button></div>
+<div id="msgs"></div><div id="out"></div></main>
+<footer>הפורטל מתעדכן אוטומטית · נבנה עבור צוות גשרים מדמ"ח · המרכז לחינוך סייבר<br><button type="button" class="flink" data-a2hs>📲 הוספה למסך הבית</button></footer>
+<button class="totop" id="totop" type="button" aria-label="חזרה למעלה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
 
 <button class="fab" id="fab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>הצעת מסמך</span></button>
 <div class="modal" id="modal" hidden><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mt">
@@ -880,6 +1094,29 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;padding:40px 16px 1
     <button class="btn" id="sbtn" type="submit">שליחה לאישור</button>
   </form>
   <div class="ok" id="sok" hidden><div class="big">✓</div><h3>תודה! ההצעה נשלחה</h3><p class="lead">המסמך יופיע בפורטל אחרי שיאושר.</p><button class="btn ghost" type="button" data-close>סגירה</button></div>
+</div></div>
+<div class="modal" id="rmodal" hidden><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rt">
+  <button class="x" type="button" data-close aria-label="סגירה">×</button>
+  <form id="rf" novalidate>
+    <h3 id="rt">דיווח על טעות</h3>
+    <p class="lead" id="rdoc"></p>
+    <div class="quick" id="rquick"><button type="button">הקישור לא נפתח</button><button type="button">אין לי הרשאה</button><button type="button">יש גרסה חדשה יותר</button><button type="button">טעות בתוכן</button></div>
+    <label class="f">מה לא תקין?<textarea name="msg" rows="3" maxlength="500" placeholder="כמה מילים יעזרו לתקן מהר"></textarea></label>
+    <label class="f">השם שלך <small style="color:var(--muted);font-weight:400">(לא חובה)</small><input name="name" maxlength="60" autocomplete="name"></label>
+    <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <p class="err" id="rerr" hidden></p>
+    <button class="btn" id="rbtn" type="submit">שליחת דיווח</button>
+  </form>
+  <div class="ok" id="rok" hidden><div class="big">✓</div><h3>תודה! הדיווח התקבל</h3><p class="lead">נטפל בזה בהקדם.</p><button class="btn ghost" type="button" data-close>סגירה</button></div>
+</div></div>
+<div class="modal" id="amodal" hidden><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="at">
+  <button class="x" type="button" data-close aria-label="סגירה">×</button>
+  <h3 id="at">📲 הוספה למסך הבית</h3>
+  <p class="lead">ככה הפורטל נפתח בלחיצה אחת, כמו אפליקציה.</p>
+  <div class="howto" id="h-ios"><b>באייפון (Safari)</b><ol><li>לוחצים על כפתור השיתוף <span class="k">⬆︎</span> בתחתית המסך</li><li>גוללים ובוחרים <span class="k">הוספה למסך הבית</span></li><li>לוחצים <span class="k">הוספה</span></li></ol></div>
+  <div class="howto" id="h-and"><b>באנדרואיד (Chrome)</b><ol><li>לוחצים על שלוש הנקודות <span class="k">⋮</span> למעלה</li><li>בוחרים <span class="k">הוספה למסך הבית</span></li><li>לוחצים <span class="k">הוספה</span></li></ol></div>
+  <p class="hint">💡 כדאי לשמור את הקישור הייעודי שלכם (של מש"קיות או של מנה"דים), כדי שהפורטל ייפתח ישר עם החומרים שלכם.</p>
+  <button class="btn ghost" type="button" data-close>הבנתי</button>
 </div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -953,69 +1190,151 @@ function dueTag(l){
   var txt=n===0?'⏰ היום'+(at||'!'):n===1?'⏰ מחר'+at:n<=3?'⏰ עוד '+n+' ימים':'📅 עד יום '+DAYN[new Date(+p[0],p[1]-1,+p[2]).getDay()]+' '+d+(l.dueT?' '+l.dueT:'');
   return '<span class="tag due'+(n<=3?' soon':'')+'" title="למילוי עד '+d+(l.dueT?' '+l.dueT:'')+'">'+txt+'</span>'+rec;
 }
+var TYPES={doc:'מסמכים',slides:'מצגות',sheet:'גיליונות',form:'טפסים',folder:'תיקיות',file:'קבצים',link:'קישורים'};
+var FLAG=P+'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>';
+D.links.forEach(function(l,i){l.i=i});
+var VIEW=store('gesharim_view')==='list'?'list':'grid',SORT=store('gesharim_sort')||'sheet',FTYPE='',ARCH_OPEN=false,HRE=null;
+if(!/^(sheet|az|new|top)$/.test(SORT))SORT='sheet';
+// מיון בתוך הקטגוריות. "סדר מומלץ" = הסדר בגיליון
+function sorter(){
+  if(SORT==='az')return function(a,b){return a.t.localeCompare(b.t,'he')};
+  if(SORT==='new')return function(a,b){return b.when-a.when};
+  if(SORT==='top')return function(a,b){return b.v-a.v};
+  return function(a,b){return a.i-b.i};
+}
+// הדגשת מילות החיפוש: סלחני כמו החיפוש עצמו (גרשיים, מקפים ואותיות סופיות באמצע מילה)
+var FINS={'כ':'[כך]','מ':'[מם]','נ':'[נן]','פ':'[פף]','צ':'[צץ]'};
+function makeHre(words){
+  var gap='["\'\x60״׳ְ-ׇ_.,:;()/|+–—-]*';
+  var parts=words.filter(function(w){return w.length>1}).map(function(w){
+    return w.split('').map(function(c){return FINS[c]||c.replace(/[-.*+?^$(){}|[\]\\\/]/g,'\\$&')}).join(gap);
+  });
+  return parts.length?new RegExp(parts.join('|'),'gi'):null;
+}
+function hl(t){
+  t=String(t);if(!HRE)return esc(t);
+  var out='',last=0,m;HRE.lastIndex=0;
+  while((m=HRE.exec(t))){if(!m[0]){HRE.lastIndex++;continue}out+=esc(t.slice(last,m.index))+'<mark>'+esc(m[0])+'</mark>';last=m.index+m[0].length}
+  return out+esc(t.slice(last));
+}
 function card(l){
   var f=!!FAV[l.u],u=esc(l.u),n=left(l);
-  var tags=dueTag(l)+(l.p?'<span class="tag pin">📌 חשוב</span>':'')+(l.isNew?'<span class="tag new">חדש</span>':'')+(l.isUpd?'<span class="tag upd">עודכן</span>':'')+
+  var tags=(l.x?'<span class="tag arch">🗄️ בארכיון</span>':'')+dueTag(l)+(l.p?'<span class="tag pin">📌 חשוב</span>':'')+(l.isNew?'<span class="tag new">חדש</span>':'')+(l.isUpd?'<span class="tag upd">עודכן</span>':'')+
     (role==='all'&&l.a!=='all'?'<span class="tag aud">'+AUD[l.a]+'</span>':'');
-  return '<div class="cw'+(n!==null&&!past(l)&&n<=3?' hot':'')+'"><a class="card" href="'+u+'" target="_blank" rel="noopener" data-u="'+u+'"><div class="ic t-'+l.type+'">'+ICON[l.type]+'</div><div class="body">'+
-    '<div class="tt">'+esc(l.t)+'</div>'+(l.d?'<div class="dd">'+esc(l.d)+'</div>':'')+
+  return '<div class="cw'+(n!==null&&!past(l)&&n<=3?' hot':'')+(l.x?' old':'')+'"><a class="card" href="'+u+'" target="_blank" rel="noopener" data-u="'+u+'"><div class="ic t-'+l.type+'">'+ICON[l.type]+'</div><div class="body">'+
+    '<div class="tt">'+hl(l.t)+'</div>'+(l.d?'<div class="dd">'+hl(l.d)+'</div>':'')+
     '<div class="meta">'+tags+'<span>'+KIND[l.type]+'</span>'+(l.o?'<span class="own" title="אחראי על המסמך">👤 '+esc(l.o)+'</span>':'')+'</div></div></a>'+
     '<div class="acts"><button class="act'+(f?' on':'')+'" data-act="fav" data-u="'+u+'" title="'+(f?'הסרה מהמועדפים':'הוספה למועדפים')+'" aria-label="מועדפים" aria-pressed="'+f+'">'+
       P.replace('fill="none"','fill="'+(f?'currentColor':'none')+'"')+STAR+'</button>'+
     (l.due&&!past(l)?'<a class="act" href="'+esc(calUrl(l))+'" target="_blank" rel="noopener" title="הוספה ליומן" aria-label="הוספה ליומן">'+CAL+'</a>':'')+
     '<button class="act" data-act="copy" data-u="'+u+'" title="העתקת קישור" aria-label="העתקת קישור">'+COPY+'</button>'+
-    '<a class="act" href="https://wa.me/?text='+esc(encodeURIComponent(l.t+'\n'+l.u))+'" target="_blank" rel="noopener" title="שליחה בוואטסאפ" aria-label="שליחה בוואטסאפ">'+WA+'</a></div></div>';
+    '<a class="act" href="https://wa.me/?text='+esc(encodeURIComponent(l.t+'\n'+l.u))+'" target="_blank" rel="noopener" title="שליחה בוואטסאפ" aria-label="שליחה בוואטסאפ">'+WA+'</a>'+
+    '<button class="act" data-act="report" data-u="'+u+'" title="דיווח על טעות" aria-label="דיווח על טעות">'+FLAG+'</button></div></div>';
 }
-// max: כמה כרטיסים להציג לפני כפתור "הצג עוד" (0 = הכל)
+function grid(items){return '<div class="grid">'+items.map(card).join('')+'</div>'}
+// תת-קטגוריות: מסמכים בלי תת-קטגוריה ראשונים, ואחריהם כל תת-קטגוריה לפי הסדר שבו היא מופיעה לראשונה בגיליון
+function bySubs(items){
+  var g={},first={};
+  items.forEach(function(l){var k=l.s||'';(g[k]=g[k]||[]).push(l);if(!(k in first)||l.i<first[k])first[k]=l.i});
+  var keys=Object.keys(g);
+  if(keys.length===1&&!keys[0])return grid(items);
+  keys.sort(function(a,b){return (a?1:0)-(b?1:0)||first[a]-first[b]});
+  return keys.map(function(k){return (k?'<h3 class="subh" data-sub="'+esc(k)+'">'+esc(k)+' <span>'+g[k].length+'</span></h3>':'')+grid(g[k])}).join('');
+}
+// max: כמה כרטיסים להציג לפני כפתור "הצג עוד" (0 = הכל). subs: לחלק לפי תת-קטגוריות
 var NAV=[];
-function section(id,icon,title,items,max){
+function section(id,icon,title,items,max,subs){
   if(!items.length)return '';
   NAV.push({id:id,t:title,n:items.length});
-  var cut=max&&items.length>max;
-  return '<section class="sec" id="'+id+'"><h2><span class="hi">'+icon+'</span>'+title+' <span class="n">'+items.length+'</span></h2><div class="grid">'+
-    (cut?items.slice(0,max):items).map(card).join('')+'</div>'+(cut?'<button class="more" data-more>הצג עוד '+(items.length-max)+'</button>':'')+'</section>';
+  var cut=max&&items.length>max,show=cut?items.slice(0,max):items;
+  return '<section class="sec" id="'+id+'" data-t="'+esc(title)+'"><h2><span class="hi">'+icon+'</span>'+esc(title)+' <span class="n">'+items.length+'</span></h2>'+
+    (subs?bySubs(show):grid(show))+(cut?'<button class="more" data-more>הצג עוד '+(items.length-max)+'</button>':'')+'</section>';
+}
+function tools(V){
+  var have={};V.forEach(function(l){have[l.type]=(have[l.type]||0)+1});
+  if(FTYPE&&!have[FTYPE])FTYPE='';
+  document.getElementById('ftype').innerHTML='<option value="">כל הסוגים</option>'+Object.keys(TYPES).filter(function(t){return have[t]}).map(function(t){
+    return '<option value="'+t+'"'+(t===FTYPE?' selected':'')+'>'+TYPES[t]+' ('+have[t]+')</option>'}).join('');
+  document.getElementById('fsort').value=SORT;
+  document.querySelectorAll('[data-view]').forEach(function(b){var on=b.dataset.view===VIEW;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
+  document.body.classList.toggle('list',VIEW==='list');
 }
 function render(){
   document.querySelectorAll('.chip').forEach(function(c){c.classList.toggle('on',c.dataset.r===role)});
-  var q=norm(document.getElementById('q').value),words=q.split(' ').filter(String);
-  var V=D.links.filter(seen);
-  var fresh=V.filter(function(l){return l.isNew||l.isUpd}).length,cats={};V.forEach(function(l){cats[l.c]=1});
-  var todo=V.filter(isTodo).length;
-  document.getElementById('stats').innerHTML='<span class="stat"><b>'+V.length+'</b> מסמכים</span><span class="stat"><b>'+Object.keys(cats).length+'</b> קטגוריות</span>'+
+  var raw=document.getElementById('q').value,q=norm(raw),words=q.split(' ').filter(String);
+  HRE=makeHre(words);
+  var V=D.links.filter(seen),A=V.filter(function(l){return !l.x});
+  var fresh=A.filter(function(l){return l.isNew||l.isUpd}).length,cats={};A.forEach(function(l){cats[l.c]=1});
+  var todo=A.filter(isTodo).length;
+  document.getElementById('stats').innerHTML='<span class="stat"><b>'+A.length+'</b> מסמכים</span><span class="stat"><b>'+Object.keys(cats).length+'</b> קטגוריות</span>'+
     (todo?'<span class="stat">⏰ <b>'+todo+'</b> למילוי</span>':'')+(fresh?'<span class="stat">🆕 <b>'+fresh+'</b> חדשים ועודכנו</span>':'');
   document.getElementById('msgs').innerHTML=q?'':D.msgs.filter(seen).map(function(m){
     return '<div class="msg '+m.lvl+'"><div class="mi">'+(m.lvl==='urgent'?'🔴':m.lvl==='important'?'⚠️':'💬')+'</div><div><b>'+esc(m.t)+'</b>'+
       (m.b?'<p>'+esc(m.b).replace(/\n/g,'<br>')+'</p>':'')+(m.date?'<small>'+m.date+'</small>':'')+'</div></div>';
   }).join('');
+  tools(q?V:A);
   var L=V.filter(function(l){
+    if(FTYPE&&l.type!==FTYPE)return false;
     if(!words.length)return true;
-    var hay=l.n||(l.n=norm(l.t+' '+l.d+' '+l.c+' '+(l.o||'')));
+    var hay=l.n||(l.n=norm(l.t+' '+l.d+' '+l.c+' '+(l.s||'')+' '+(l.o||'')));
     // אות בודדת (כמו "ב" ב"שנה ב") מתאימה רק לתחילת מילה
     return words.every(function(w){return w.length>1?hay.indexOf(w)>-1:(' '+hay).indexOf(' '+w)>-1});
   });
   var pills=document.getElementById('pills');
   if(!L.length){
     pills.innerHTML='';
-    document.getElementById('out').innerHTML='<div class="empty"><div class="big">🔍</div><p>לא נמצאו מסמכים'+(q?' עבור "'+esc(document.getElementById('q').value)+'"':'')+'</p><p>חסר משהו? אפשר להציע מסמך בכפתור למטה.</p></div>';
-    return;
+    document.getElementById('out').innerHTML='<div class="empty"><div class="big">🔍</div><p>לא נמצאו מסמכים'+(q?' עבור "'+esc(raw)+'"':'')+(FTYPE?' מסוג '+TYPES[FTYPE]:'')+'</p><p>חסר משהו? אפשר להציע מסמך בכפתור למטה.</p></div>';
+    spy();return;
   }
+  // בחיפוש מוצגים גם מסמכים מהארכיון (עם תג). בלי חיפוש הם רק באזור הארכיון בתחתית
+  var act=q?L:L.filter(function(l){return !l.x}),srt=sorter();
   NAV=[];var h='';
   if(!q){
     h+=section('s-fav','⭐','המועדפים שלי',L.filter(function(l){return FAV[l.u]}));
     // מסמך מופיע רק באזור העליון הראשון שמתאים לו: למילוי > שגרות > חשוב עכשיו > חדש ועודכן
     var byDue=function(a,b){return a.dueTs-b.dueTs},top=function(l){return isTodo(l)||!!l.rec};
-    h+=section('s-due','⏰','למילוי עד תאריך',L.filter(isTodo).sort(byDue));
-    h+=section('s-rec','🔁','שגרות קבועות',L.filter(function(l){return l.rec&&!isTodo(l)}).sort(byDue));
-    h+=section('s-pin','📌','חשוב עכשיו',L.filter(function(l){return l.p&&!top(l)}));
-    h+=section('s-new','🆕','חדש ועודכן ב-'+D.days+' הימים האחרונים',L.filter(function(l){return (l.isNew||l.isUpd)&&!l.p&&!top(l)}).sort(function(a,b){return b.when-a.when}),MORE?0:FRESH_MAX);
+    h+=section('s-due','⏰','למילוי עד תאריך',act.filter(isTodo).sort(byDue));
+    h+=section('s-rec','🔁','שגרות קבועות',act.filter(function(l){return l.rec&&!isTodo(l)}).sort(byDue));
+    h+=section('s-pin','📌','חשוב עכשיו',act.filter(function(l){return l.p&&!top(l)}));
+    h+=section('s-new','🆕','חדש ועודכן ב-'+D.days+' הימים האחרונים',act.filter(function(l){return (l.isNew||l.isUpd)&&!l.p&&!top(l)}).sort(function(a,b){return b.when-a.when}),MORE?0:FRESH_MAX);
   }
-  var cs=(D.cats||[]).slice();L.forEach(function(l){if(cs.indexOf(l.c)<0)cs.push(l.c)});
-  cs.forEach(function(c,i){h+=section('s-c'+i,'📂',esc(c),L.filter(function(l){return l.c===c}))});
+  var cs=(D.cats||[]).slice();act.forEach(function(l){if(cs.indexOf(l.c)<0)cs.push(l.c)});
+  cs.forEach(function(c,i){h+=section('s-c'+i,'📂',c,act.filter(function(l){return l.c===c}).sort(srt),0,true)});
+  var AR=q?[]:L.filter(function(l){return l.x}).sort(srt);
+  if(AR.length){
+    NAV.push({id:'s-arch',t:'ארכיון',n:AR.length});
+    h+='<section class="sec archs" id="s-arch" data-t="ארכיון"><button class="archt" type="button" data-arch aria-expanded="'+ARCH_OPEN+'"><span class="hi">🗄️</span>ארכיון <span class="n">'+AR.length+'</span><span class="chev">'+(ARCH_OPEN?'▴':'▾')+'</span></button>'+
+      (ARCH_OPEN?'<p class="archnote">מסמכים שהוחלפו או כבר לא בשימוש. נשמרים כאן למקרה שצריך לחזור אליהם.</p>'+grid(AR):'')+'</section>';
+  }
   document.getElementById('out').innerHTML=h;
-  pills.innerHTML=q?'<div class="res">'+L.length+' תוצאות</div>':NAV.map(function(s){
-    return '<button class="pill" data-go="'+s.id+'">'+s.t.replace(/ ב-\d+ הימים האחרונים/,'')+'<small>'+s.n+'</small></button>';
+  pills.innerHTML=q||FTYPE?'<div class="res">'+L.length+' תוצאות'+(FTYPE?' · '+TYPES[FTYPE]:'')+'</div>':NAV.map(function(s){
+    return '<button class="pill" data-go="'+s.id+'">'+esc(s.t.replace(/ ב-\d+ הימים האחרונים/,''))+'<small>'+s.n+'</small></button>';
   }).join('');
+  spy();
 }
+// פירורי לחם + סימון האזור הנוכחי בשורת הקטגוריות + כפתור "חזרה למעלה"
+var CUR=null,ticking=false;
+function spy(){
+  ticking=false;
+  var base=document.getElementById('pills').getBoundingClientRect().bottom+34,cur=null,sub=null;
+  document.querySelectorAll('.sec').forEach(function(s){if(s.getBoundingClientRect().top<=base)cur=s});
+  if(cur&&cur.getBoundingClientRect().bottom<=base)cur=null;
+  if(cur)cur.querySelectorAll('.subh').forEach(function(x){if(x.getBoundingClientRect().top<=base)sub=x});
+  var c=document.getElementById('crumb');
+  if(cur){c.innerHTML='<button type="button" data-top>🏠 ראשי</button><span aria-hidden="true">›</span><b>'+esc(cur.dataset.t.replace(/ ב-\d+ הימים האחרונים/,''))+'</b>'+(sub?'<span aria-hidden="true">›</span><b>'+esc(sub.dataset.sub)+'</b>':'');c.classList.add('show')}
+  else c.classList.remove('show');
+  var id=cur?cur.id:null;
+  if(id!==CUR){
+    CUR=id;
+    document.querySelectorAll('.pill').forEach(function(p){
+      var on=p.dataset.go===id;p.classList.toggle('on',on);
+      if(on)p.scrollIntoView({block:'nearest',inline:'center'});
+    });
+  }
+  document.getElementById('totop').classList.toggle('show',window.scrollY>700);
+}
+window.addEventListener('scroll',function(){if(!ticking){ticking=true;requestAnimationFrame(spy)}},{passive:true});
+window.addEventListener('resize',function(){if(!ticking){ticking=true;requestAnimationFrame(spy)}});
 
 document.querySelectorAll('.chip').forEach(function(c){c.onclick=function(){role=c.dataset.r;render()}});
 // בקישור ייעודי (?role=m / ?role=n) מסתירים את בחירת הקהל. זו הסתרה בתצוגה בלבד, לא חסימת גישה.
@@ -1025,12 +1344,23 @@ document.getElementById('q').oninput=render;
 document.getElementById('pills').addEventListener('click',function(e){
   var b=e.target.closest('[data-go]');if(b)document.getElementById(b.dataset.go).scrollIntoView({behavior:'smooth',block:'start'});
 });
+document.getElementById('ftype').onchange=function(){FTYPE=this.value;render();window.scrollTo({top:0})};
+document.getElementById('fsort').onchange=function(){SORT=this.value;store('gesharim_sort',SORT);render()};
+document.querySelectorAll('[data-view]').forEach(function(b){b.onclick=function(){VIEW=b.dataset.view;store('gesharim_view',VIEW);render()}});
+document.getElementById('crumb').addEventListener('click',function(e){if(e.target.closest('[data-top]'))window.scrollTo({top:0,behavior:'smooth'})});
+document.getElementById('totop').onclick=function(){window.scrollTo({top:0,behavior:'smooth'})};
 document.getElementById('out').addEventListener('click',function(e){
   if(e.target.closest('button[data-more]')){MORE=true;render();return}
+  if(e.target.closest('button[data-arch]')){
+    ARCH_OPEN=!ARCH_OPEN;render();
+    if(ARCH_OPEN)document.getElementById('s-arch').scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
   var b=e.target.closest('button[data-act]');
   if(b){
     var u=b.getAttribute('data-u');
     if(b.dataset.act==='fav'){if(FAV[u])delete FAV[u];else FAV[u]=1;saveFav();render();toast(FAV[u]?'נוסף למועדפים ⭐':'הוסר מהמועדפים')}
+    else if(b.dataset.act==='report')openReport(u);
     else copy(u);
     return;
   }
@@ -1039,6 +1369,53 @@ document.getElementById('out').addEventListener('click',function(e){
 });
 
 // ---- הצעת מסמך
+// סגירה של כל החלונות: לחיצה ברקע, כפתור סגירה או Esc
+document.querySelectorAll('.modal').forEach(function(m){
+  m.addEventListener('click',function(e){if(e.target===m||e.target.closest('[data-close]'))m.hidden=true});
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')document.querySelectorAll('.modal').forEach(function(m){m.hidden=true})});
+
+// ---- דיווח על טעות
+var rm=document.getElementById('rmodal'),rf=document.getElementById('rf'),RU='';
+function openReport(u){
+  RU=u;rf.hidden=false;document.getElementById('rok').hidden=true;document.getElementById('rerr').hidden=true;
+  rf.reset();rf.name.value=store('gesharim_name')||'';
+  document.querySelectorAll('#rquick button').forEach(function(b){b.classList.remove('on')});
+  document.getElementById('rdoc').textContent=BYU[u]?BYU[u].t:'';
+  rm.hidden=false;
+}
+document.getElementById('rquick').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  b.classList.toggle('on');
+  rf.msg.value=[].map.call(document.querySelectorAll('#rquick button.on'),function(x){return x.textContent}).join(' · ');
+});
+rf.addEventListener('submit',function(e){
+  e.preventDefault();
+  var err=document.getElementById('rerr'),btn=document.getElementById('rbtn');
+  function fail(m){err.textContent=m;err.hidden=false;btn.disabled=false;btn.textContent='שליחת דיווח'}
+  var f={u:RU,msg:rf.msg.value.trim(),name:rf.name.value.trim(),website:rf.website.value};
+  if(f.msg.length<3)return fail('נא לבחור או לכתוב מה הבעיה.');
+  if(!(window.google&&google.script&&google.script.run))return fail('אפשר לשלוח רק מתוך הפורטל עצמו.');
+  err.hidden=true;btn.disabled=true;btn.textContent='שולח...';
+  if(f.name)store('gesharim_name',f.name);
+  google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.ok)return fail((r&&r.msg)||'משהו השתבש. נסו שוב.');
+    rf.hidden=true;document.getElementById('rok').hidden=false;btn.disabled=false;btn.textContent='שליחת דיווח';
+  }).withFailureHandler(function(){fail('משהו השתבש. נסו שוב בעוד דקה.')}).reportIssue(f);
+});
+
+// ---- הוספה למסך הבית: הסבר, וטיפ חד-פעמי בנייד
+var IOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+document.addEventListener('click',function(e){
+  if(e.target.closest('[data-a2hs]')){
+    var ios=document.getElementById('h-ios'),and=document.getElementById('h-and');
+    ios.parentNode.insertBefore(IOS?ios:and,IOS?and:ios);
+    document.getElementById('amodal').hidden=false;
+  }
+  if(e.target.closest('[data-tipx]')){document.getElementById('tip').hidden=true;store('gesharim_tip','1')}
+});
+if(window.matchMedia('(max-width:700px)').matches&&!store('gesharim_tip'))document.getElementById('tip').hidden=false;
+
 var modal=document.getElementById('modal'),sf=document.getElementById('sf');
 document.getElementById('scat').innerHTML=(D.cats.length?D.cats:['כללי']).map(function(c){return '<option>'+esc(c)+'</option>'}).join('');
 function openForm(){
@@ -1047,10 +1424,7 @@ function openForm(){
   var r=sf.querySelector('input[name=aud][value="'+(ROLE0==='all'?'all':ROLE0)+'"]');if(r)r.checked=true;
   modal.hidden=false;setTimeout(function(){(sf.name.value?sf.title:sf.name).focus()},50);
 }
-function closeForm(){modal.hidden=true}
 document.getElementById('fab').onclick=openForm;
-modal.addEventListener('click',function(e){if(e.target===modal||e.target.closest('[data-close]'))closeForm()});
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!modal.hidden)closeForm()});
 sf.addEventListener('submit',function(e){
   e.preventDefault();
   var err=document.getElementById('serr'),btn=document.getElementById('sbtn');
