@@ -16,6 +16,7 @@
  * בהגדרות B5 מדביקים את קישור הפורטל (משמש את "פתיחת הפורטל" ואת העדכון השבועי).
  * תחזוקה: עובדים רק בגיליון. מוסיפים שורה, בוחרים קטגוריה ומסמנים וי למי המסמך מיועד (מש"קיות / מנה"דים / שניהם).
  * שורה בלי וי היא טיוטה: נצבעת אפור ולא מופיעה בפורטל.
+ * תג"ב (עמודה M): תאריך אחרון למילוי. עד התאריך המסמך מופיע בראש הפורטל ב"⏰ למילוי", עם ספירה לאחור.
  * אין צורך לפרוס מחדש, אלא אם משנים את הקוד.
  */
 
@@ -51,7 +52,7 @@ function setup() {
   // ---- קישורים
   var L = ss.getSheetByName(SHEET_LINKS) || ss.insertSheet(SHEET_LINKS);
   L.clear();
-  var lh = ['כותרת', 'קישור', 'קטגוריה', 'מש"קיות ✓', 'מנה"דים ✓', 'תיאור קצר', '📌 מוצמד', 'תאריך הוספה', 'צפיות', 'צפייה אחרונה', 'צפיות מש"קיות', 'צפיות מנה"דים'];
+  var lh = ['כותרת', 'קישור', 'קטגוריה', 'מש"קיות ✓', 'מנה"דים ✓', 'תיאור קצר', '📌 מוצמד', 'תאריך הוספה', 'צפיות', 'צפייה אחרונה', 'צפיות מש"קיות', 'צפיות מנה"דים', 'תג"ב (למילוי עד)'];
   L.getRange(1, 1, 1, lh.length).setValues([lh]);
   var B = true, N = false; // B = לשניהם, N = למנה"דים בלבד
   var seed = [
@@ -68,7 +69,7 @@ function setup() {
     ['ניטור תצפיות תשפ"ז', 'https://docs.google.com/spreadsheets/d/1gXpKq_dm5KVliVUBL3Hfe2hOsENDb_aHWG6toYVYCYg', 'תצפיות ומשוב', N, 'מילוי שורה אחרי כל תצפית', false],
     ['טמפלייט חוו"ד תצפית', 'https://docs.google.com/document/d/187XIHxDYmpOK_mU3l9G0WDwqCbnQ1cQm6TGyps6GdUQ', 'תצפיות ומשוב', N, '', false]
   ];
-  var rows = seed.map(function (r) { return [r[0], r[1], r[2], r[3], true, r[4], r[5], today, 0, '', 0, 0]; });
+  var rows = seed.map(function (r) { return [r[0], r[1], r[2], r[3], true, r[4], r[5], today, 0, '', 0, 0, '']; });
   L.getRange(2, 1, rows.length, lh.length).setValues(rows);
   styleHeader_(L, lh.length);
   L.setColumnWidth(1, 260); L.setColumnWidth(2, 300); L.setColumnWidth(3, 150); L.setColumnWidth(6, 280);
@@ -80,10 +81,11 @@ function setup() {
   L.getRange(1, 9, 1, 4).setBackground('#475569');
   // שורה בלי אף וי בקהל = טיוטה: נצבעת אפור ולא מופיעה בפורטל
   var draft = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($A2<>"",NOT($D2),NOT($E2))')
-    .setBackground('#f1f5f9').setFontColor('#94a3b8').setRanges([L.getRange('A2:L')]).build();
+    .setBackground('#f1f5f9').setFontColor('#94a3b8').setRanges([L.getRange('A2:M')]).build();
   var fresh = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($H2<>"",TODAY()-$H2<=INDIRECT("הגדרות!B3"))')
     .setBackground('#ecfdf5').setRanges([L.getRange('A2:A')]).build();
   L.setConditionalFormatRules([draft, fresh]);
+  dueColumn_(L); // אחרי הכללים הקודמים, כי הוא מוסיף עליהם
 
   // ---- הודעות
   var M = ss.getSheetByName(SHEET_MSGS) || ss.insertSheet(SHEET_MSGS);
@@ -189,12 +191,12 @@ function importFolder() {
   ensureColumns_();
   var today = new Date(), rows = [];
   var subs = folder.getFolders();
-  while (subs.hasNext()) { var f = subs.next(); if (!have[f.getId()]) rows.push([f.getName(), f.getUrl(), cat, false, false, 'תיקייה', false, today, 0, '', 0, 0]); }
+  while (subs.hasNext()) { var f = subs.next(); if (!have[f.getId()]) rows.push([f.getName(), f.getUrl(), cat, false, false, 'תיקייה', false, today, 0, '', 0, 0, '']); }
   var files = folder.getFiles();
   while (files.hasNext()) {
     var x = files.next();
     if (have[x.getId()] || x.getMimeType() === MimeType.SHORTCUT) continue;
-    rows.push([x.getName(), x.getUrl(), cat, false, false, '', false, today, 0, '', 0, 0]);
+    rows.push([x.getName(), x.getUrl(), cat, false, false, '', false, today, 0, '', 0, 0, '']);
   }
   if (!rows.length) { ui.alert('לא נמצאו קבצים חדשים בתיקייה (כל הקבצים כבר בגיליון).'); return; }
   rows.sort(function (a, b) { return String(a[0]).localeCompare(String(b[0]), 'he'); });
@@ -264,15 +266,29 @@ function onOpen() {
     .addItem('התקנה מחדש (מוחק נתונים!)', 'setup')
     .addToUi();
 }
-// גיליונות שנבנו לפני שנוספו עמודות הצפיות לפי קהל (K-L) ולשונית הבקשות מקבלים אותן כאן
+// גיליונות שנבנו לפני שנוספו עמודות הצפיות לפי קהל (K-L), התג"ב (M) ולשונית הבקשות מקבלים אותן כאן
 function ensureColumns_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureRequests_();
   var L = ss.getSheetByName(SHEET_LINKS);
   if (L && !L.getRange(1, 11).getValue())
     L.getRange(1, 11, 1, 2).setValues([['צפיות מש"קיות', 'צפיות מנה"דים']]).setFontWeight('bold').setFontColor('#ffffff').setBackground('#475569');
+  if (L && !L.getRange(1, 13).getValue()) dueColumn_(L);
   var S = ss.getSheetByName(SHEET_SET);
   if (S && !S.getRange(5, 1).getValue()) S.getRange(5, 1).setValue('קישור לפורטל (מדביקים אחרי הפריסה)');
+}
+
+// עמודת תג"ב: כותרת, פורמט תאריך, לוח שנה בלחיצה כפולה, ואדום כשנשארו 3 ימים או פחות
+function dueColumn_(L) {
+  L.getRange(1, 13).setValue('תג"ב (למילוי עד)').setFontWeight('bold').setFontColor('#ffffff').setBackground('#b91c1c');
+  L.setColumnWidth(13, 130);
+  L.getRange('M2:M').setNumberFormat('dd/MM/yyyy')
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).setHelpText('תאריך אחרון למילוי. לחיצה כפולה פותחת לוח שנה.').build());
+  var soon = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($M2<>"",$M2>=TODAY(),$M2-TODAY()<=3)')
+    .setBackground('#fee2e2').setFontColor('#b91c1c').setRanges([L.getRange('M2:M')]).build();
+  var past = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($M2<>"",$M2<TODAY())')
+    .setFontColor('#94a3b8').setRanges([L.getRange('M2:M')]).build();
+  L.setConditionalFormatRules(L.getConditionalFormatRules().concat([soon, past]));
 }
 
 function portalUrl_() {
@@ -287,18 +303,26 @@ function openPortal() {
 }
 
 // ---------------------------------------------------------------- הצעות מסמכים מהצוות
-// עמודות "בקשות": תאריך | שם המציע/ה | כותרת | קישור | קטגוריה | קהל | תיאור | סטטוס | הערות מערכת
+// עמודות "בקשות": תאריך | שם המציע/ה | כותרת | קישור | קטגוריה | קהל | תיאור | סטטוס | הערות מערכת | תג"ב
 var MAX_SUBMITS_PER_DAY = 40;
 
 function ensureRequests_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var R = ss.getSheetByName(SHEET_REQ);
-  if (R) return R;
+  if (R) {
+    if (!R.getRange(1, 10).getValue()) {
+      R.getRange(1, 10).setValue('תג"ב').setFontWeight('bold').setFontColor('#ffffff').setBackground('#b91c1c');
+      R.getRange('J2:J').setNumberFormat('dd/MM/yyyy');
+    }
+    return R;
+  }
   R = ss.insertSheet(SHEET_REQ);
-  var h = ['תאריך', 'שם המציע/ה', 'כותרת', 'קישור', 'קטגוריה', 'קהל', 'תיאור', 'סטטוס', 'הערות מערכת'];
+  var h = ['תאריך', 'שם המציע/ה', 'כותרת', 'קישור', 'קטגוריה', 'קהל', 'תיאור', 'סטטוס', 'הערות מערכת', 'תג"ב'];
   R.getRange(1, 1, 1, h.length).setValues([h]);
   styleHeader_(R, h.length);
   R.getRange(1, 8).setBackground('#b45309');
+  R.getRange(1, 10).setBackground('#b91c1c');
+  R.getRange('J2:J').setNumberFormat('dd/MM/yyyy');
   R.setColumnWidth(2, 140); R.setColumnWidth(3, 240); R.setColumnWidth(4, 260); R.setColumnWidth(7, 240); R.setColumnWidth(9, 320);
   R.getRange('A2:A').setNumberFormat('dd/MM/yyyy HH:mm');
   dropdown_(R, 'H2:H', ['ממתין', 'אושר', 'נדחה']);
@@ -336,6 +360,12 @@ function submitDoc(f) {
   if (!name || !title) return { ok: false, msg: 'חסרים שם או כותרת.' };
   if (!/^https:\/\/[^\s]+$/.test(url)) return { ok: false, msg: 'הקישור צריך להתחיל ב-https://' };
   var aud = { m: 'מש"קיות', n: 'מנה"דים', all: 'שניהם' }[f.aud] || 'שניהם';
+  var due = '', dm = String(f.due || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dm) {
+    due = new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]));
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    if (isNaN(due) || due < today) return { ok: false, msg: 'התג"ב כבר עבר. בחרו תאריך עתידי או השאירו ריק.' };
+  }
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return { ok: false, msg: 'עומס רגעי. נסו שוב בעוד דקה.' };
@@ -357,7 +387,7 @@ function submitDoc(f) {
     if (R.getLastRow() > 1 && R.getRange(2, 4, R.getLastRow() - 1, 5).getValues().some(function (r) { return same(r[0]) && r[4] === 'ממתין'; }))
       return { ok: false, msg: 'המסמך הזה כבר הוצע ומחכה לאישור.' };
 
-    R.getRange(R.getLastRow() + 1, 1, 1, 9).setValues([[new Date(), name, title, url, cat, aud, desc, 'ממתין', '']]);
+    R.getRange(R.getLastRow() + 1, 1, 1, 10).setValues([[new Date(), name, title, url, cat, aud, desc, 'ממתין', '', due]]);
     props.setProperty(key, String(count + 1));
   } finally { lock.releaseLock(); }
 
@@ -385,13 +415,13 @@ function notifyRequest_(name, title, url, aud) {
 
 // סטטוס "אושר": מעביר ללשונית הקישורים, פותח שיתוף לכל מי שיש לו את הקישור, ורושם הערה
 function approveRequest_(R, r) {
-  var v = R.getRange(r, 1, 1, 9).getValues()[0];
+  var v = R.getRange(r, 1, 1, 10).getValues()[0];
   if (String(v[8]).indexOf('פורסם') === 0 || !v[3]) return;
   var L = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LINKS);
   var forM = v[5] !== 'מנה"דים', forN = v[5] !== 'מש"קיות';
   // הגיליון מחזיר את הטקסט בלי סימן ההגנה ('), אז מגינים שוב לפני ההעתקה
   var desc = clean_(String(v[6] || '') + (v[1] ? (v[6] ? ' · ' : '') + 'הוצע ע"י ' + v[1] : ''), 400);
-  L.getRange(L.getLastRow() + 1, 1, 1, 12).setValues([[clean_(v[2], 120), v[3], v[4] || 'כללי', forM, forN, desc, false, new Date(), 0, '', 0, 0]]);
+  L.getRange(L.getLastRow() + 1, 1, 1, 13).setValues([[clean_(v[2], 120), v[3], v[4] || 'כללי', forM, forN, desc, false, new Date(), 0, '', 0, 0, v[9] instanceof Date ? v[9] : '']]);
 
   var note = '';
   var id = driveId_(v[3]);
@@ -476,7 +506,7 @@ function getData_(winDays) {
   var links = [];
   var L = ss.getSheetByName(SHEET_LINKS);
   if (L && L.getLastRow() > 1) {
-    var rows = L.getRange(2, 1, L.getLastRow() - 1, 8).getValues().filter(function (r) {
+    var rows = L.getRange(2, 1, L.getLastRow() - 1, 13).getValues().filter(function (r) {
       return r[0] && String(r[1] || '').trim() && aud_(r[3], r[4]);
     });
     var updAll = st.checkDrive ? driveUpdatedAll_(rows.map(function (r) { return String(r[1]).trim(); })) : {};
@@ -489,7 +519,8 @@ function getData_(winDays) {
         t: String(r[0]), u: url, c: String(r[2] || 'כללי'), a: a, d: String(r[5] || ''),
         p: r[6] === true, type: fileType_(url),
         isNew: !!isNew, isUpd: !isNew && upd && now - upd <= win,
-        when: Math.max(added || 0, upd || 0)
+        when: Math.max(added || 0, upd || 0),
+        due: r[12] instanceof Date ? fmt_(r[12], 'yyyy-MM-dd') : ''
       });
     });
   }
@@ -531,6 +562,13 @@ function weeklyDigest() {
     if (msgs.length) {
       out.push('', '📢 הודעות:');
       msgs.forEach(function (m) { out.push((m.lvl === 'urgent' ? '🔴 ' : m.lvl === 'important' ? '🟡 ' : '• ') + m.t + (m.b ? ': ' + m.b.replace(/\n+/g, ' ') : '')); });
+    }
+    var todayStr = fmt_(new Date(), 'yyyy-MM-dd'), in14 = fmt_(new Date(Date.now() + 14 * 86400000), 'yyyy-MM-dd');
+    var due = data.links.filter(mine).filter(function (l) { return l.due && l.due >= todayStr && l.due <= in14; })
+      .sort(function (a, b) { return a.due < b.due ? -1 : 1; });
+    if (due.length) {
+      out.push('', '⏰ למילוי:');
+      due.forEach(function (l) { var d = l.due.split('-'); out.push('• ' + l.t + ' (עד ' + d[2] + '/' + d[1] + ')'); });
     }
     out.push('', '📄 מסמכים:');
     if (links.length) links.forEach(function (l) { out.push((l.isNew ? '🆕 ' : '✏️ ') + l.t + (l.isNew ? '' : ' (עודכן)')); });
@@ -648,8 +686,10 @@ a.card:focus-visible{box-shadow:inset 0 0 0 2px var(--brand2)}
 .dd{color:var(--muted);font-size:13.5px;margin-top:3px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;font-size:12px;color:var(--muted)}
 .tag{font-size:11.5px;font-weight:700;border-radius:6px;padding:1px 8px}
+.tag.due{background:#e0e7ff;color:#3730a3}.tag.due.soon{background:#fee2e2;color:#b91c1c}.tag.due.past{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
+.cw.hot{border-color:#fca5a5;box-shadow:0 0 0 3px rgba(239,68,68,.08),var(--shadow)}
 .tag.new{background:#dcfce7;color:#166534}.tag.upd{background:#dbeafe;color:#1e40af}.tag.pin{background:#fef3c7;color:#92400e}.tag.aud{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
-@media (prefers-color-scheme:dark){.tag.new{background:rgba(34,197,94,.18);color:#86efac}.tag.upd{background:rgba(59,130,246,.2);color:#93c5fd}.tag.pin{background:rgba(245,158,11,.2);color:#fcd34d}}
+@media (prefers-color-scheme:dark){.tag.due{background:rgba(99,102,241,.2);color:#c7d2fe}.tag.due.soon{background:rgba(239,68,68,.2);color:#fca5a5}.cw.hot{border-color:rgba(239,68,68,.5)}.tag.new{background:rgba(34,197,94,.18);color:#86efac}.tag.upd{background:rgba(59,130,246,.2);color:#93c5fd}.tag.pin{background:rgba(245,158,11,.2);color:#fcd34d}}
 .acts{display:flex;justify-content:flex-end;gap:2px;padding:0 8px 8px}
 .act{width:36px;height:36px;display:grid;place-items:center;border:0;background:none;border-radius:10px;color:var(--muted);cursor:pointer;text-decoration:none;transition:.15s}
 .act svg{width:18px;height:18px}
@@ -721,6 +761,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;padding:40px 16px 1
       <label><input type="radio" name="aud" value="m"><span>מש"קיות</span></label>
       <label><input type="radio" name="aud" value="n"><span>מנה"דים</span></label>
       <label><input type="radio" name="aud" value="all"><span>שניהם</span></label></div></div>
+    <label class="f">תג"ב למילוי <small style="color:var(--muted);font-weight:400">(אם צריך למלא עד תאריך)</small><input name="due" type="date"></label>
     <label class="f">תיאור קצר <small style="color:var(--muted);font-weight:400">(לא חובה)</small><textarea name="desc" rows="2" maxlength="300"></textarea></label>
     <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
     <p class="hint">💡 ודאו שהמסמך משותף ל"כל מי שיש לו את הקישור", כדי שכולם יוכלו לפתוח אותו.</p>
@@ -769,11 +810,20 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;
 var FIN={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
 function norm(s){return String(s).toLowerCase().replace(/["'\x60״׳ְ-ׇ]/g,'').replace(/[ךםןףץ]/g,function(c){return FIN[c]}).replace(/[-–—_.,:;()\/|+]+/g,' ').replace(/\s+/g,' ').trim()}
 function seen(x){return role==='all'||x.a==='all'||x.a===role}
+// תג"ב: כמה ימים נשארו (לפי התאריך בדפדפן). null = אין תג"ב
+var T0=new Date();T0.setHours(0,0,0,0);
+function left(l){if(!l.due)return null;var p=l.due.split('-');return Math.round((new Date(+p[0],p[1]-1,+p[2])-T0)/864e5)}
+function dueTag(l){
+  var n=left(l);if(n===null)return '';var p=l.due.split('-'),d=p[2]+'/'+p[1];
+  if(n<0)return '<span class="tag due past">התג"ב עבר ('+d+')</span>';
+  var txt=n===0?'⏰ היום!':n===1?'⏰ עד מחר':n<=3?'⏰ עוד '+n+' ימים':'📅 למילוי עד '+d;
+  return '<span class="tag due'+(n<=3?' soon':'')+'" title="תג״ב '+d+'">'+txt+'</span>';
+}
 function card(l){
-  var f=!!FAV[l.u],u=esc(l.u);
-  var tags=(l.p?'<span class="tag pin">📌 חשוב</span>':'')+(l.isNew?'<span class="tag new">חדש</span>':'')+(l.isUpd?'<span class="tag upd">עודכן</span>':'')+
+  var f=!!FAV[l.u],u=esc(l.u),n=left(l);
+  var tags=dueTag(l)+(l.p?'<span class="tag pin">📌 חשוב</span>':'')+(l.isNew?'<span class="tag new">חדש</span>':'')+(l.isUpd?'<span class="tag upd">עודכן</span>':'')+
     (role==='all'&&l.a!=='all'?'<span class="tag aud">'+AUD[l.a]+'</span>':'');
-  return '<div class="cw"><a class="card" href="'+u+'" target="_blank" rel="noopener" data-u="'+u+'"><div class="ic t-'+l.type+'">'+ICON[l.type]+'</div><div class="body">'+
+  return '<div class="cw'+(n!==null&&n>=0&&n<=3?' hot':'')+'"><a class="card" href="'+u+'" target="_blank" rel="noopener" data-u="'+u+'"><div class="ic t-'+l.type+'">'+ICON[l.type]+'</div><div class="body">'+
     '<div class="tt">'+esc(l.t)+'</div>'+(l.d?'<div class="dd">'+esc(l.d)+'</div>':'')+
     '<div class="meta">'+tags+'<span>'+KIND[l.type]+'</span></div></div></a>'+
     '<div class="acts"><button class="act'+(f?' on':'')+'" data-act="fav" data-u="'+u+'" title="'+(f?'הסרה מהמועדפים':'הוספה למועדפים')+'" aria-label="מועדפים" aria-pressed="'+f+'">'+
@@ -795,8 +845,9 @@ function render(){
   var q=norm(document.getElementById('q').value),words=q.split(' ').filter(String);
   var V=D.links.filter(seen);
   var fresh=V.filter(function(l){return l.isNew||l.isUpd}).length,cats={};V.forEach(function(l){cats[l.c]=1});
+  var todo=V.filter(function(l){var n=left(l);return n!==null&&n>=0}).length;
   document.getElementById('stats').innerHTML='<span class="stat"><b>'+V.length+'</b> מסמכים</span><span class="stat"><b>'+Object.keys(cats).length+'</b> קטגוריות</span>'+
-    (fresh?'<span class="stat">🆕 <b>'+fresh+'</b> חדשים ועודכנו</span>':'');
+    (todo?'<span class="stat">⏰ <b>'+todo+'</b> למילוי</span>':'')+(fresh?'<span class="stat">🆕 <b>'+fresh+'</b> חדשים ועודכנו</span>':'');
   document.getElementById('msgs').innerHTML=q?'':D.msgs.filter(seen).map(function(m){
     return '<div class="msg '+m.lvl+'"><div class="mi">'+(m.lvl==='urgent'?'🔴':m.lvl==='important'?'⚠️':'💬')+'</div><div><b>'+esc(m.t)+'</b>'+
       (m.b?'<p>'+esc(m.b).replace(/\n/g,'<br>')+'</p>':'')+(m.date?'<small>'+m.date+'</small>':'')+'</div></div>';
@@ -816,9 +867,11 @@ function render(){
   NAV=[];var h='';
   if(!q){
     h+=section('s-fav','⭐','המועדפים שלי',L.filter(function(l){return FAV[l.u]}));
-    h+=section('s-pin','📌','חשוב עכשיו',L.filter(function(l){return l.p}));
-    // מסמך מוצמד כבר מופיע ב"חשוב עכשיו", אז לא מכפילים אותו כאן
-    h+=section('s-new','🆕','חדש ועודכן ב-'+D.days+' הימים האחרונים',L.filter(function(l){return (l.isNew||l.isUpd)&&!l.p}).sort(function(a,b){return b.when-a.when}),MORE?0:FRESH_MAX);
+    // מסמך מופיע רק באזור העליון הראשון שמתאים לו: למילוי > חשוב עכשיו > חדש ועודכן
+    var isTodo=function(l){var n=left(l);return n!==null&&n>=0};
+    h+=section('s-due','⏰','למילוי עד תאריך',L.filter(isTodo).sort(function(a,b){return a.due<b.due?-1:1}));
+    h+=section('s-pin','📌','חשוב עכשיו',L.filter(function(l){return l.p&&!isTodo(l)}));
+    h+=section('s-new','🆕','חדש ועודכן ב-'+D.days+' הימים האחרונים',L.filter(function(l){return (l.isNew||l.isUpd)&&!l.p&&!isTodo(l)}).sort(function(a,b){return b.when-a.when}),MORE?0:FRESH_MAX);
   }
   var cs=(D.cats||[]).slice();L.forEach(function(l){if(cs.indexOf(l.c)<0)cs.push(l.c)});
   cs.forEach(function(c,i){h+=section('s-c'+i,'📂',esc(c),L.filter(function(l){return l.c===c}))});
@@ -866,7 +919,7 @@ sf.addEventListener('submit',function(e){
   e.preventDefault();
   var err=document.getElementById('serr'),btn=document.getElementById('sbtn');
   function fail(m){err.textContent=m;err.hidden=false;btn.disabled=false;btn.textContent='שליחה לאישור'}
-  var f={name:sf.name.value.trim(),title:sf.title.value.trim(),url:sf.url.value.trim(),cat:sf.cat.value,desc:sf.desc.value.trim(),website:sf.website.value,
+  var f={name:sf.name.value.trim(),title:sf.title.value.trim(),url:sf.url.value.trim(),cat:sf.cat.value,desc:sf.desc.value.trim(),due:sf.due.value,website:sf.website.value,
     aud:(sf.querySelector('input[name=aud]:checked')||{}).value||'all'};
   if(!f.name||!f.title)return fail('נא למלא שם וכותרת.');
   if(!/^https:\/\/\S+$/.test(f.url))return fail('נא להדביק קישור מלא שמתחיל ב-https://');
