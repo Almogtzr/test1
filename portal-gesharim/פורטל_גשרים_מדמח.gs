@@ -19,6 +19,8 @@
  * תג"ב (עמודה M): תאריך אחרון למילוי. עד התאריך המסמך מופיע בראש הפורטל ב"⏰ למילוי", עם ספירה לאחור.
  * שגרה (עמודות N-P): "כל שבוע" / "כל שבועיים", יום ושעה. הפורטל מחשב לבד את המועד הבא.
  *   בשגרה דו-שבועית ממלאים ב-M את המועד הקרוב, וממנו נספרים השבועיים. השעה (P) חלה גם על תג"ב חד-פעמי.
+ * אחראי (עמודה Q): בחירה מתוך רשימת האחראים בהגדרות, עמודה F. מוצג בכרטיס בפורטל.
+ * דוח הרשאות (בתפריט): מי יכול לערוך כל מסמך מפורסם, ואיפה השיתוף פתוח מדי או סגור מדי.
  * אין צורך לפרוס מחדש, אלא אם משנים את הקוד.
  */
 
@@ -47,14 +49,15 @@ function setup() {
     ['קישור לפורטל (מדביקים אחרי הפריסה)', '']
   ]);
   S.getRange(1, 4).setValue('קטגוריות (לפי סדר ההצגה בפורטל)');
+  S.getRange(1, 6, 2, 1).setValues([['אחראים (לבחירה בעמודת "אחראי")'], ['אלמוג']]);
   S.getRange(2, 4, CATS.length, 1).setValues(CATS.map(function (c) { return [c]; }));
   styleHeader_(S, 4);
-  S.setColumnWidth(1, 300); S.setColumnWidth(4, 260);
+  S.setColumnWidth(1, 300); S.setColumnWidth(4, 260); S.setColumnWidth(6, 240);
 
   // ---- קישורים
   var L = ss.getSheetByName(SHEET_LINKS) || ss.insertSheet(SHEET_LINKS);
   L.clear();
-  var lh = ['כותרת', 'קישור', 'קטגוריה', 'מש"קיות ✓', 'מנה"דים ✓', 'תיאור קצר', '📌 מוצמד', 'תאריך הוספה', 'צפיות', 'צפייה אחרונה', 'צפיות מש"קיות', 'צפיות מנה"דים', 'תג"ב (למילוי עד)', 'שגרה', 'יום', 'עד שעה'];
+  var lh = ['כותרת', 'קישור', 'קטגוריה', 'מש"קיות ✓', 'מנה"דים ✓', 'תיאור קצר', '📌 מוצמד', 'תאריך הוספה', 'צפיות', 'צפייה אחרונה', 'צפיות מש"קיות', 'צפיות מנה"דים', 'תג"ב (למילוי עד)', 'שגרה', 'יום', 'עד שעה', '👤 אחראי'];
   L.getRange(1, 1, 1, lh.length).setValues([lh]);
   var B = true, N = false; // B = לשניהם, N = למנה"דים בלבד
   var seed = [
@@ -71,7 +74,7 @@ function setup() {
     ['ניטור תצפיות תשפ"ז', 'https://docs.google.com/spreadsheets/d/1gXpKq_dm5KVliVUBL3Hfe2hOsENDb_aHWG6toYVYCYg', 'תצפיות ומשוב', N, 'מילוי שורה אחרי כל תצפית', false],
     ['טמפלייט חוו"ד תצפית', 'https://docs.google.com/document/d/187XIHxDYmpOK_mU3l9G0WDwqCbnQ1cQm6TGyps6GdUQ', 'תצפיות ומשוב', N, '', false]
   ];
-  var rows = seed.map(function (r) { return [r[0], r[1], r[2], r[3], true, r[4], r[5], today, 0, '', 0, 0, '', '', '', '']; });
+  var rows = seed.map(function (r) { return [r[0], r[1], r[2], r[3], true, r[4], r[5], today, 0, '', 0, 0, '', '', '', '', '']; });
   L.getRange(2, 1, rows.length, lh.length).setValues(rows);
   styleHeader_(L, lh.length);
   L.setColumnWidth(1, 260); L.setColumnWidth(2, 300); L.setColumnWidth(3, 150); L.setColumnWidth(6, 280);
@@ -83,12 +86,13 @@ function setup() {
   L.getRange(1, 9, 1, 4).setBackground('#475569');
   // שורה בלי אף וי בקהל = טיוטה: נצבעת אפור ולא מופיעה בפורטל
   var draft = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($A2<>"",NOT($D2),NOT($E2))')
-    .setBackground('#f1f5f9').setFontColor('#94a3b8').setRanges([L.getRange('A2:P')]).build();
+    .setBackground('#f1f5f9').setFontColor('#94a3b8').setRanges([L.getRange('A2:Q')]).build();
   var fresh = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($H2<>"",TODAY()-$H2<=INDIRECT("הגדרות!B3"))')
     .setBackground('#ecfdf5').setRanges([L.getRange('A2:A')]).build();
   L.setConditionalFormatRules([draft, fresh]);
   dueColumn_(L); // אחרי הכללים הקודמים, כי הוא מוסיף עליהם
   routineColumns_(L);
+  ownerColumn_(L, S);
 
   // ---- הודעות
   var M = ss.getSheetByName(SHEET_MSGS) || ss.insertSheet(SHEET_MSGS);
@@ -194,12 +198,12 @@ function importFolder() {
   ensureColumns_();
   var today = new Date(), rows = [];
   var subs = folder.getFolders();
-  while (subs.hasNext()) { var f = subs.next(); if (!have[f.getId()]) rows.push([f.getName(), f.getUrl(), cat, false, false, 'תיקייה', false, today, 0, '', 0, 0, '', '', '', '']); }
+  while (subs.hasNext()) { var f = subs.next(); if (!have[f.getId()]) rows.push([f.getName(), f.getUrl(), cat, false, false, 'תיקייה', false, today, 0, '', 0, 0, '', '', '', '', '']); }
   var files = folder.getFiles();
   while (files.hasNext()) {
     var x = files.next();
     if (have[x.getId()] || x.getMimeType() === MimeType.SHORTCUT) continue;
-    rows.push([x.getName(), x.getUrl(), cat, false, false, '', false, today, 0, '', 0, 0, '', '', '', '']);
+    rows.push([x.getName(), x.getUrl(), cat, false, false, '', false, today, 0, '', 0, 0, '', '', '', '', '']);
   }
   if (!rows.length) { ui.alert('לא נמצאו קבצים חדשים בתיקייה (כל הקבצים כבר בגיליון).'); return; }
   rows.sort(function (a, b) { return String(a[0]).localeCompare(String(b[0]), 'he'); });
@@ -229,6 +233,58 @@ function logClick(url, who) {
       }
     }
   } finally { lock.releaseLock(); }
+}
+
+// ---------------------------------------------------------------- דוח הרשאות
+// לכל מסמך מפורסם: בעלים, מי יכול לערוך, ומה השיתוף הכללי. רק קורא, לא משנה כלום.
+// ההמלצה: הצוות בצפייה או בתגובה בלבד, ורק מעטים עורכים. כך אין "כל אחד משנה את המקור".
+var MAX_EDITORS_OK = 3;
+function permissionsReport() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), L = ss.getSheetByName(SHEET_LINKS);
+  var n = L.getLastRow() - 1;
+  if (n < 1) return;
+  var start = Date.now(), out = [], skipped = 0;
+  var A = DriveApp.Access, P = DriveApp.Permission;
+  var ACC = {}; ACC[A.ANYONE] = 'ציבורי'; ACC[A.ANYONE_WITH_LINK] = 'כל מי שיש לו קישור'; ACC[A.DOMAIN] = 'כל הארגון';
+  ACC[A.DOMAIN_WITH_LINK] = 'בארגון, עם קישור'; ACC[A.PRIVATE] = 'פרטי (רק מי שהוזמן)';
+  var PER = {}; PER[P.VIEW] = 'צפייה'; PER[P.COMMENT] = 'תגובה'; PER[P.EDIT] = 'עריכה';
+  L.getRange(2, 1, n, 17).getValues().forEach(function (r) {
+    var url = String(r[1] || '').trim(), id = driveId_(url);
+    if (!r[0] || !id || !aud_(r[3], r[4])) return;
+    if (Date.now() - start > 300000) { skipped++; return; } // מגבלת הזמן של גוגל היא 6 דקות
+    var row = [r[0], r[2], String(r[16] || ''), '', 0, '', '', '', url];
+    try {
+      var f = url.indexOf('/folders/') > -1 ? DriveApp.getFolderById(id) : DriveApp.getFileById(id);
+      var owner = f.getOwner(), eds = f.getEditors().map(function (u) { return u.getEmail(); });
+      var acc = f.getSharingAccess(), per = f.getSharingPermission();
+      row[3] = owner ? owner.getEmail() : 'אחסון שיתופי';
+      row[4] = eds.length;
+      row[5] = eds.join(', ');
+      row[6] = (ACC[acc] || String(acc)) + (acc === A.PRIVATE ? '' : ' · ' + (PER[per] || String(per)));
+      var bad = [];
+      if (acc !== A.PRIVATE && per === P.EDIT) bad.push('🔴 כל מי שיש לו קישור יכול לערוך. מומלץ לשנות לצפייה');
+      if (eds.length > MAX_EDITORS_OK) bad.push('🟠 ' + eds.length + ' עורכים. כדאי לצמצם לבעלים בלבד');
+      if (acc === A.PRIVATE) bad.push('🟡 פרטי: מי שלא הוזמן לא יוכל לפתוח');
+      row[7] = bad.length ? bad.join(' | ') : '✅ תקין';
+    } catch (err) {
+      row[7] = '⚪ אין לי גישה לקובץ, או שהוא נמחק';
+    }
+    out.push(row);
+  });
+  if (!out.length) { SpreadsheetApp.getUi().alert('לא נמצאו מסמכים מפורסמים מהדרייב.'); return; }
+  // החמור ביותר למעלה: 🔴 > 🟠 > 🟡 > ⚪ > ✅
+  var rank = function (t) { return ['🔴', '🟠', '🟡', '⚪', '✅'].map(function (m) { return t.indexOf(m) > -1; }).indexOf(true); };
+  out.sort(function (a, b) { return rank(a[7]) - rank(b[7]) || b[4] - a[4]; });
+  var R = ss.getSheetByName('דוח הרשאות') || ss.insertSheet('דוח הרשאות');
+  R.clear();
+  R.getRange(1, 1, 1, 9).setValues([['מסמך', 'קטגוריה', 'אחראי', 'בעלים', 'עורכים', 'רשימת עורכים', 'שיתוף כללי', 'מה לבדוק', 'קישור']]);
+  R.getRange(2, 1, out.length, 9).setValues(out);
+  styleHeader_(R, 9);
+  R.setColumnWidth(1, 260); R.setColumnWidth(6, 320); R.setColumnWidth(7, 200); R.setColumnWidth(8, 380);
+  var rule = function (f, bg) { return SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(f).setBackground(bg).setRanges([R.getRange('A2:I')]).build(); };
+  R.setConditionalFormatRules([rule('=ISNUMBER(SEARCH("🔴",$H2))', '#fee2e2'), rule('=ISNUMBER(SEARCH("עורכים",$H2))', '#ffedd5'), rule('=ISNUMBER(SEARCH("פרטי",$H2))', '#fef9c3')]);
+  R.getRange(1, 11).setValue('הדוח רק קורא ולא משנה הרשאות. לתיקון: פותחים את הקישור > שיתוף.' + (skipped ? ' ⚠️ ' + skipped + ' מסמכים לא נבדקו בגלל מגבלת זמן. הריצו שוב.' : '')).setFontColor('#64748b');
+  ss.setActiveSheet(R);
 }
 
 function viewsReport() {
@@ -264,6 +320,7 @@ function onOpen() {
     .addItem('📨 בקשות ממתינות' + (pending ? ' (' + pending + ')' : ''), 'openRequests')
     .addItem('📥 ייבוא קבצים מתיקייה בדרייב', 'importFolder')
     .addItem('📊 דוח צפיות', 'viewsReport')
+    .addItem('🔐 דוח הרשאות עריכה', 'permissionsReport')
     .addItem('✉️ טיוטת עדכון שבועי', 'weeklyDigest')
     .addSeparator()
     .addItem('התקנה מחדש (מוחק נתונים!)', 'setup')
@@ -279,6 +336,12 @@ function ensureColumns_() {
   if (L && !L.getRange(1, 13).getValue()) dueColumn_(L);
   if (L && !L.getRange(1, 14).getValue()) routineColumns_(L);
   var S = ss.getSheetByName(SHEET_SET);
+  if (S && !S.getRange(1, 6).getValue()) {
+    S.getRange(1, 6).setValue('אחראים (לבחירה בעמודת "אחראי")').setFontWeight('bold').setBackground('#0f766e').setFontColor('#ffffff');
+    if (!S.getRange(2, 6).getValue()) S.getRange(2, 6).setValue('אלמוג');
+    S.setColumnWidth(6, 240);
+  }
+  if (L && S && !L.getRange(1, 17).getValue()) ownerColumn_(L, S);
   if (S && !S.getRange(5, 1).getValue()) S.getRange(5, 1).setValue('קישור לפורטל (מדביקים אחרי הפריסה)');
 }
 
@@ -308,10 +371,10 @@ function routineColumns_(L) {
   L.getRange(1, 16).setNote('למשל 14:00. בלי שעה = עד סוף היום. השעה חלה גם על תג"ב חד-פעמי.');
 }
 
-// המועד הקרוב למילוי. r = שורה מלשונית הקישורים, ו-r[16] = השעה כפי שהיא מוצגת בגיליון.
+// המועד הקרוב למילוי. r = שורה מלשונית הקישורים, ו-r[17] = השעה כפי שהיא מוצגת בגיליון.
 // שגרה: מתחילים מהתג"ב (או מתאריך ההוספה), מזיזים ליום שנבחר, ומוסיפים 7/14 יום עד שמגיעים לעתיד.
 function nextDue_(r, now) {
-  var tm = String(r[16] || '').match(/(\d{1,2}):(\d{2})/), h = tm ? Number(tm[1]) : 23, mi = tm ? Number(tm[2]) : 59;
+  var tm = String(r[17] || '').match(/(\d{1,2}):(\d{2})/), h = tm ? Number(tm[1]) : 23, mi = tm ? Number(tm[2]) : 59;
   var rec = String(r[13] || ''), period = rec.indexOf('שבועיים') > -1 ? 14 : rec.indexOf('שבוע') > -1 ? 7 : 0;
   var base = r[12] instanceof Date ? r[12] : null;
   if (!period && !base) return null;
@@ -323,6 +386,13 @@ function nextDue_(r, now) {
     while (d.getTime() < now) d.setDate(d.getDate() + period);
   }
   return { at: d, time: tm ? fmt_(d, 'HH:mm') : '', rec: period === 7 ? 'כל שבוע' : period === 14 ? 'כל שבועיים' : '' };
+}
+
+// עמודת אחראי (Q): רשימה נפתחת מתוך הגדרות F. מוסיפים שם בהגדרות, והוא מופיע לבחירה.
+function ownerColumn_(L, S) {
+  L.getRange(1, 17).setValue('👤 אחראי').setFontWeight('bold').setFontColor('#ffffff').setBackground('#0f766e');
+  L.setColumnWidth(17, 130);
+  L.getRange('Q2:Q').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInRange(S.getRange('F2:F40'), true).build());
 }
 
 function portalUrl_() {
@@ -541,7 +611,7 @@ function getData_(winDays) {
   var L = ss.getSheetByName(SHEET_LINKS);
   if (L && L.getLastRow() > 1) {
     var times = L.getRange(2, 16, L.getLastRow() - 1, 1).getDisplayValues();
-    var rows = L.getRange(2, 1, L.getLastRow() - 1, 16).getValues().map(function (r, i) { r.push(times[i][0]); return r; }).filter(function (r) {
+    var rows = L.getRange(2, 1, L.getLastRow() - 1, 17).getValues().map(function (r, i) { r.push(times[i][0]); return r; }).filter(function (r) {
       return r[0] && String(r[1] || '').trim() && aud_(r[3], r[4]);
     });
     var updAll = st.checkDrive ? driveUpdatedAll_(rows.map(function (r) { return String(r[1]).trim(); })) : {};
@@ -555,7 +625,8 @@ function getData_(winDays) {
         p: r[6] === true, type: fileType_(url),
         isNew: !!isNew, isUpd: !isNew && upd && now - upd <= win,
         when: Math.max(added || 0, upd || 0),
-        due: nd ? fmt_(nd.at, 'yyyy-MM-dd') : '', dueTs: nd ? nd.at.getTime() : 0, dueT: nd ? nd.time : '', rec: nd ? nd.rec : ''
+        due: nd ? fmt_(nd.at, 'yyyy-MM-dd') : '', dueTs: nd ? nd.at.getTime() : 0, dueT: nd ? nd.time : '', rec: nd ? nd.rec : '',
+        o: String(r[16] || '').trim()
       });
     });
   }
@@ -726,6 +797,7 @@ a.card:focus-visible{box-shadow:inset 0 0 0 2px var(--brand2)}
 .tag{font-size:11.5px;font-weight:700;border-radius:6px;padding:1px 8px}
 .tag.due{background:#e0e7ff;color:#3730a3}.tag.due.soon{background:#fee2e2;color:#b91c1c}.tag.due.past{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
 .tag.rec{background:#f3e8ff;color:#6b21a8}
+.own:before{content:"·";margin-inline-end:6px;color:var(--line)}
 .cw.hot{border-color:#fca5a5;box-shadow:0 0 0 3px rgba(239,68,68,.08),var(--shadow)}
 .tag.new{background:#dcfce7;color:#166534}.tag.upd{background:#dbeafe;color:#1e40af}.tag.pin{background:#fef3c7;color:#92400e}.tag.aud{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
 @media (prefers-color-scheme:dark){.tag.rec{background:rgba(168,85,247,.2);color:#d8b4fe}.tag.due{background:rgba(99,102,241,.2);color:#c7d2fe}.tag.due.soon{background:rgba(239,68,68,.2);color:#fca5a5}.cw.hot{border-color:rgba(239,68,68,.5)}.tag.new{background:rgba(34,197,94,.18);color:#86efac}.tag.upd{background:rgba(59,130,246,.2);color:#93c5fd}.tag.pin{background:rgba(245,158,11,.2);color:#fcd34d}}
@@ -887,7 +959,7 @@ function card(l){
     (role==='all'&&l.a!=='all'?'<span class="tag aud">'+AUD[l.a]+'</span>':'');
   return '<div class="cw'+(n!==null&&!past(l)&&n<=3?' hot':'')+'"><a class="card" href="'+u+'" target="_blank" rel="noopener" data-u="'+u+'"><div class="ic t-'+l.type+'">'+ICON[l.type]+'</div><div class="body">'+
     '<div class="tt">'+esc(l.t)+'</div>'+(l.d?'<div class="dd">'+esc(l.d)+'</div>':'')+
-    '<div class="meta">'+tags+'<span>'+KIND[l.type]+'</span></div></div></a>'+
+    '<div class="meta">'+tags+'<span>'+KIND[l.type]+'</span>'+(l.o?'<span class="own" title="אחראי על המסמך">👤 '+esc(l.o)+'</span>':'')+'</div></div></a>'+
     '<div class="acts"><button class="act'+(f?' on':'')+'" data-act="fav" data-u="'+u+'" title="'+(f?'הסרה מהמועדפים':'הוספה למועדפים')+'" aria-label="מועדפים" aria-pressed="'+f+'">'+
       P.replace('fill="none"','fill="'+(f?'currentColor':'none')+'"')+STAR+'</button>'+
     (l.due&&!past(l)?'<a class="act" href="'+esc(calUrl(l))+'" target="_blank" rel="noopener" title="הוספה ליומן" aria-label="הוספה ליומן">'+CAL+'</a>':'')+
@@ -917,7 +989,7 @@ function render(){
   }).join('');
   var L=V.filter(function(l){
     if(!words.length)return true;
-    var hay=l.n||(l.n=norm(l.t+' '+l.d+' '+l.c));
+    var hay=l.n||(l.n=norm(l.t+' '+l.d+' '+l.c+' '+(l.o||'')));
     // אות בודדת (כמו "ב" ב"שנה ב") מתאימה רק לתחילת מילה
     return words.every(function(w){return w.length>1?hay.indexOf(w)>-1:(' '+hay).indexOf(' '+w)>-1});
   });
