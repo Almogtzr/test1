@@ -15,9 +15,16 @@ let seed=12345;const rnd=n=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed
   p.on('console',m=>{if(m.type()==='error'&&!/fonts|net::|Failed to load/.test(m.text()))report.errors.push(tag+' console: '+m.text())});
   p.on('dialog',d=>{report.issues.push(tag+': נפתח dialog: '+d.message());d.dismiss()});
   await p.addInitScript(id=>{let s=id*7+1;const r=()=>{s=(s*9301+49297)%233280;return s/233280};
-   window.CALLS=[];window.google={script:{run:new Proxy({},{get(t,k){
-    if(k==='withSuccessHandler'||k==='withFailureHandler'){return function(fn){const o=this.__o||(this.__o={});o[k]=fn;const self=this;return new Proxy({},{get(_,kk){if(kk==='withSuccessHandler'||kk==='withFailureHandler')return fn2=>{o[kk]=fn2;return this_};return (...a)=>{CALLS.push(kk);const x=r();setTimeout(()=>{if(x<.1)o.withFailureHandler&&o.withFailureHandler(new Error('net'));else o.withSuccessHandler&&o.withSuccessHandler(x<.25?{ok:false,msg:'שגיאה מדומה'}:{ok:true})},50+x*300)}}});var this_}}
-    return (...a)=>{CALLS.push(k)}}})}}},id);
+   // חיקוי google.script.run: השהיה אקראית, 10% כשל רשת, 15% תשובת שגיאה מהשרת
+   window.CALLS=[];
+   function Runner(){this.ok=null;this.bad=null}
+   Runner.prototype.withSuccessHandler=function(f){var n=new Runner();n.ok=f;n.bad=this.bad;return n};
+   Runner.prototype.withFailureHandler=function(f){var n=new Runner();n.ok=this.ok;n.bad=f;return n};
+   ['submitDoc','reportIssue','logClick'].forEach(function(k){Runner.prototype[k]=function(){CALLS.push(k);var me=this,x=r();
+     setTimeout(function(){if(x<.1){me.bad&&me.bad(new Error('net'))}else{me.ok&&me.ok(x<.25?{ok:false,msg:'שגיאה מדומה'}:{ok:true})}},50+x*300)}});
+   window.google={script:{run:new Runner()}};
+  },id);
+  p.setDefaultTimeout(4000);
   const file='p_'+(id%7===0?'big':role)+'.html';
   await p.goto('file://'+process.cwd()+'/'+file);await p.waitForTimeout(150);
   const mobile=dev.viewport.width<=700;
@@ -46,7 +53,7 @@ let seed=12345;const rnd=n=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed
   ];
   for(let s=0;s<STEPS;s++){
    const k=rnd(acts.length);
-   try{await acts[k]();report.actions++}catch(e){report.issues.push(tag+': פעולה '+k+' נכשלה: '+e.message.split('\n')[0])}
+   try{await acts[k]();report.actions++}catch(e){report.issues.push(tag+': פעולה '+k+' נכשלה: '+e.message.split('\n')[0]);await p.keyboard.press('Escape').catch(()=>{})}
    const st=await p.evaluate(()=>{
      const out=document.getElementById('out').innerText+document.getElementById('stats').innerText+document.getElementById('pills').innerText;
      const ids={};let dup=0;document.querySelectorAll('[id]').forEach(e=>{if(ids[e.id])dup++;ids[e.id]=1});
@@ -66,7 +73,7 @@ let seed=12345;const rnd=n=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed
  for(let i=0;i<ids.length;i+=C)await Promise.all(ids.slice(i,i+C).map(user));
  await b.close();
  const uniq=a=>[...new Set(a)];
- console.log('משתמשים:',N,'פעולות:',report.actions,'זמן:',Math.round((Date.now()-t0)/1000)+'s');
+ console.log('\n== סיכום ==');console.log('משתמשים:',N,'פעולות:',report.actions,'זמן:',Math.round((Date.now()-t0)/1000)+'s');
  console.log('קריאות לשרת:',JSON.stringify(report.calls));
  console.log('שגיאות JS:',report.errors.length);uniq(report.errors).slice(0,15).forEach(e=>console.log('  ',e));
  console.log('בעיות:',report.issues.length);uniq(report.issues.map(x=>x.replace(/משתמש \d+ /,''))).slice(0,30).forEach(e=>console.log('  ',e));
