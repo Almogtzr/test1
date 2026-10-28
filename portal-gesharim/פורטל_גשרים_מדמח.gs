@@ -499,6 +499,10 @@ function copy(u){
 var TYPE={doc:'DOC',slides:'PPT',sheet:'XLS',form:'טופס',folder:'📁',file:'קובץ',link:'🔗'};
 var AUD={all:'',m:'למש"קיות',n:'למנה"דים'};
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+// חיפוש סלחני: בלי גרשיים ומקפים, אותיות סופיות כרגילות, וכל מילה בנפרד בכל סדר
+// ("משקיות" מוצא "מש"קיות", "אקזיט מחוון" מוצא "אקזיט טיקט ... - מחוון")
+var FIN={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
+function norm(s){return String(s).toLowerCase().replace(/["'\x60״׳\u05b0-\u05c7]/g,'').replace(/[ךםןףץ]/g,function(c){return FIN[c]}).replace(/[-–—_.,:;()\/|+]+/g,' ').replace(/\s+/g,' ').trim()}
 function seen(x){return role==='all'||x.a==='all'||x.a===role}
 function card(l){
   var tags=(l.p?'<span class="tag pin">📌 חשוב</span>':'')+(l.isNew?'<span class="tag new">חדש</span>':'')+(l.isUpd?'<span class="tag upd">עודכן</span>':'');
@@ -519,11 +523,17 @@ function section(title,items,max){
 }
 function render(){
   document.querySelectorAll('.chip').forEach(function(c){c.classList.toggle('on',c.dataset.r===role)});
-  var q=document.getElementById('q').value.trim().toLowerCase();
+  var q=norm(document.getElementById('q').value);
+  var words=q.split(' ').filter(String);
   document.getElementById('msgs').innerHTML=q?'':D.msgs.filter(seen).map(function(m){
     return '<div class="msg '+m.lvl+'"><b>'+(m.lvl==='urgent'?'🔴 ':m.lvl==='important'?'🟡 ':'💬 ')+esc(m.t)+'</b>'+esc(m.b).replace(/\n/g,'<br>')+(m.date?' <small>· '+m.date+'</small>':'')+'</div>';
   }).join('');
-  var L=D.links.filter(seen).filter(function(l){return !q||(l.t+' '+l.d+' '+l.c).toLowerCase().indexOf(q)>-1});
+  var L=D.links.filter(seen).filter(function(l){
+    if(!words.length)return true;
+    var hay=l.n||(l.n=norm(l.t+' '+l.d+' '+l.c));
+    // אות בודדת (כמו "ב" ב"שנה ב") מתאימה רק לתחילת מילה
+    return words.every(function(w){return w.length>1?hay.indexOf(w)>-1:(' '+hay).indexOf(' '+w)>-1});
+  });
   if(!L.length){document.getElementById('out').innerHTML='<div class="empty">לא נמצאו מסמכים</div>';return}
   var h='';
   if(!q){
