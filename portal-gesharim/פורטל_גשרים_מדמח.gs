@@ -17,6 +17,8 @@
  * תחזוקה: עובדים רק בגיליון. מוסיפים שורה, בוחרים קטגוריה ומסמנים וי למי המסמך מיועד (מש"קיות / מנה"דים / שניהם).
  * שורה בלי וי היא טיוטה: נצבעת אפור ולא מופיעה בפורטל.
  * תג"ב (עמודה M): תאריך אחרון למילוי. עד התאריך המסמך מופיע בראש הפורטל ב"⏰ למילוי", עם ספירה לאחור.
+ * שגרה (עמודות N-P): "כל שבוע" / "כל שבועיים", יום ושעה. הפורטל מחשב לבד את המועד הבא.
+ *   בשגרה דו-שבועית ממלאים ב-M את המועד הקרוב, וממנו נספרים השבועיים. השעה (P) חלה גם על תג"ב חד-פעמי.
  * אין צורך לפרוס מחדש, אלא אם משנים את הקוד.
  */
 
@@ -52,7 +54,7 @@ function setup() {
   // ---- קישורים
   var L = ss.getSheetByName(SHEET_LINKS) || ss.insertSheet(SHEET_LINKS);
   L.clear();
-  var lh = ['כותרת', 'קישור', 'קטגוריה', 'מש"קיות ✓', 'מנה"דים ✓', 'תיאור קצר', '📌 מוצמד', 'תאריך הוספה', 'צפיות', 'צפייה אחרונה', 'צפיות מש"קיות', 'צפיות מנה"דים', 'תג"ב (למילוי עד)'];
+  var lh = ['כותרת', 'קישור', 'קטגוריה', 'מש"קיות ✓', 'מנה"דים ✓', 'תיאור קצר', '📌 מוצמד', 'תאריך הוספה', 'צפיות', 'צפייה אחרונה', 'צפיות מש"קיות', 'צפיות מנה"דים', 'תג"ב (למילוי עד)', 'שגרה', 'יום', 'עד שעה'];
   L.getRange(1, 1, 1, lh.length).setValues([lh]);
   var B = true, N = false; // B = לשניהם, N = למנה"דים בלבד
   var seed = [
@@ -69,7 +71,7 @@ function setup() {
     ['ניטור תצפיות תשפ"ז', 'https://docs.google.com/spreadsheets/d/1gXpKq_dm5KVliVUBL3Hfe2hOsENDb_aHWG6toYVYCYg', 'תצפיות ומשוב', N, 'מילוי שורה אחרי כל תצפית', false],
     ['טמפלייט חוו"ד תצפית', 'https://docs.google.com/document/d/187XIHxDYmpOK_mU3l9G0WDwqCbnQ1cQm6TGyps6GdUQ', 'תצפיות ומשוב', N, '', false]
   ];
-  var rows = seed.map(function (r) { return [r[0], r[1], r[2], r[3], true, r[4], r[5], today, 0, '', 0, 0, '']; });
+  var rows = seed.map(function (r) { return [r[0], r[1], r[2], r[3], true, r[4], r[5], today, 0, '', 0, 0, '', '', '', '']; });
   L.getRange(2, 1, rows.length, lh.length).setValues(rows);
   styleHeader_(L, lh.length);
   L.setColumnWidth(1, 260); L.setColumnWidth(2, 300); L.setColumnWidth(3, 150); L.setColumnWidth(6, 280);
@@ -81,11 +83,12 @@ function setup() {
   L.getRange(1, 9, 1, 4).setBackground('#475569');
   // שורה בלי אף וי בקהל = טיוטה: נצבעת אפור ולא מופיעה בפורטל
   var draft = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($A2<>"",NOT($D2),NOT($E2))')
-    .setBackground('#f1f5f9').setFontColor('#94a3b8').setRanges([L.getRange('A2:M')]).build();
+    .setBackground('#f1f5f9').setFontColor('#94a3b8').setRanges([L.getRange('A2:P')]).build();
   var fresh = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($H2<>"",TODAY()-$H2<=INDIRECT("הגדרות!B3"))')
     .setBackground('#ecfdf5').setRanges([L.getRange('A2:A')]).build();
   L.setConditionalFormatRules([draft, fresh]);
   dueColumn_(L); // אחרי הכללים הקודמים, כי הוא מוסיף עליהם
+  routineColumns_(L);
 
   // ---- הודעות
   var M = ss.getSheetByName(SHEET_MSGS) || ss.insertSheet(SHEET_MSGS);
@@ -191,12 +194,12 @@ function importFolder() {
   ensureColumns_();
   var today = new Date(), rows = [];
   var subs = folder.getFolders();
-  while (subs.hasNext()) { var f = subs.next(); if (!have[f.getId()]) rows.push([f.getName(), f.getUrl(), cat, false, false, 'תיקייה', false, today, 0, '', 0, 0, '']); }
+  while (subs.hasNext()) { var f = subs.next(); if (!have[f.getId()]) rows.push([f.getName(), f.getUrl(), cat, false, false, 'תיקייה', false, today, 0, '', 0, 0, '', '', '', '']); }
   var files = folder.getFiles();
   while (files.hasNext()) {
     var x = files.next();
     if (have[x.getId()] || x.getMimeType() === MimeType.SHORTCUT) continue;
-    rows.push([x.getName(), x.getUrl(), cat, false, false, '', false, today, 0, '', 0, 0, '']);
+    rows.push([x.getName(), x.getUrl(), cat, false, false, '', false, today, 0, '', 0, 0, '', '', '', '']);
   }
   if (!rows.length) { ui.alert('לא נמצאו קבצים חדשים בתיקייה (כל הקבצים כבר בגיליון).'); return; }
   rows.sort(function (a, b) { return String(a[0]).localeCompare(String(b[0]), 'he'); });
@@ -274,6 +277,7 @@ function ensureColumns_() {
   if (L && !L.getRange(1, 11).getValue())
     L.getRange(1, 11, 1, 2).setValues([['צפיות מש"קיות', 'צפיות מנה"דים']]).setFontWeight('bold').setFontColor('#ffffff').setBackground('#475569');
   if (L && !L.getRange(1, 13).getValue()) dueColumn_(L);
+  if (L && !L.getRange(1, 14).getValue()) routineColumns_(L);
   var S = ss.getSheetByName(SHEET_SET);
   if (S && !S.getRange(5, 1).getValue()) S.getRange(5, 1).setValue('קישור לפורטל (מדביקים אחרי הפריסה)');
 }
@@ -289,6 +293,36 @@ function dueColumn_(L) {
   var past = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($M2<>"",$M2<TODAY())')
     .setFontColor('#94a3b8').setRanges([L.getRange('M2:M')]).build();
   L.setConditionalFormatRules(L.getConditionalFormatRules().concat([soon, past]));
+}
+
+var DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+// עמודות שגרה: N שגרה | O יום | P עד שעה
+function routineColumns_(L) {
+  L.getRange(1, 14, 1, 3).setValues([['שגרה', 'יום', 'עד שעה']]).setFontWeight('bold').setFontColor('#ffffff').setBackground('#7c3aed');
+  dropdown_(L, 'N2:N', ['כל שבוע', 'כל שבועיים']);
+  dropdown_(L, 'O2:O', DAYS);
+  L.getRange('P2:P').setNumberFormat('HH:mm');
+  L.getRange(1, 14).setNote('מסמך שממלאים שוב ושוב: בוחרים "כל שבוע" או "כל שבועיים", יום (O) ושעה (P).\n' +
+    'בשגרה דו-שבועית: בעמודה M (תג"ב) ממלאים את המועד הקרוב, וממנו נספרים השבועיים.');
+  L.getRange(1, 16).setNote('למשל 14:00. בלי שעה = עד סוף היום. השעה חלה גם על תג"ב חד-פעמי.');
+}
+
+// המועד הקרוב למילוי. r = שורה מלשונית הקישורים, ו-r[16] = השעה כפי שהיא מוצגת בגיליון.
+// שגרה: מתחילים מהתג"ב (או מתאריך ההוספה), מזיזים ליום שנבחר, ומוסיפים 7/14 יום עד שמגיעים לעתיד.
+function nextDue_(r, now) {
+  var tm = String(r[16] || '').match(/(\d{1,2}):(\d{2})/), h = tm ? Number(tm[1]) : 23, mi = tm ? Number(tm[2]) : 59;
+  var rec = String(r[13] || ''), period = rec.indexOf('שבועיים') > -1 ? 14 : rec.indexOf('שבוע') > -1 ? 7 : 0;
+  var base = r[12] instanceof Date ? r[12] : null;
+  if (!period && !base) return null;
+  var a = base || (r[7] instanceof Date ? r[7] : new Date(now));
+  var d = new Date(a.getFullYear(), a.getMonth(), a.getDate(), h, mi);
+  if (period) {
+    var day = DAYS.indexOf(String(r[14]).trim());
+    if (day > -1) while (d.getDay() !== day) d.setDate(d.getDate() + 1);
+    while (d.getTime() < now) d.setDate(d.getDate() + period);
+  }
+  return { at: d, time: tm ? fmt_(d, 'HH:mm') : '', rec: period === 7 ? 'כל שבוע' : period === 14 ? 'כל שבועיים' : '' };
 }
 
 function portalUrl_() {
@@ -506,7 +540,8 @@ function getData_(winDays) {
   var links = [];
   var L = ss.getSheetByName(SHEET_LINKS);
   if (L && L.getLastRow() > 1) {
-    var rows = L.getRange(2, 1, L.getLastRow() - 1, 13).getValues().filter(function (r) {
+    var times = L.getRange(2, 16, L.getLastRow() - 1, 1).getDisplayValues();
+    var rows = L.getRange(2, 1, L.getLastRow() - 1, 16).getValues().map(function (r, i) { r.push(times[i][0]); return r; }).filter(function (r) {
       return r[0] && String(r[1] || '').trim() && aud_(r[3], r[4]);
     });
     var updAll = st.checkDrive ? driveUpdatedAll_(rows.map(function (r) { return String(r[1]).trim(); })) : {};
@@ -514,13 +549,13 @@ function getData_(winDays) {
       var url = String(r[1]).trim(), a = aud_(r[3], r[4]);
       var added = r[7] instanceof Date ? r[7].getTime() : null;
       var upd = updAll[url] || null;
-      var isNew = added && now - added <= win;
+      var isNew = added && now - added <= win, nd = nextDue_(r, now);
       links.push({
         t: String(r[0]), u: url, c: String(r[2] || 'כללי'), a: a, d: String(r[5] || ''),
         p: r[6] === true, type: fileType_(url),
         isNew: !!isNew, isUpd: !isNew && upd && now - upd <= win,
         when: Math.max(added || 0, upd || 0),
-        due: r[12] instanceof Date ? fmt_(r[12], 'yyyy-MM-dd') : ''
+        due: nd ? fmt_(nd.at, 'yyyy-MM-dd') : '', dueTs: nd ? nd.at.getTime() : 0, dueT: nd ? nd.time : '', rec: nd ? nd.rec : ''
       });
     });
   }
@@ -568,7 +603,10 @@ function weeklyDigest() {
       .sort(function (a, b) { return a.due < b.due ? -1 : 1; });
     if (due.length) {
       out.push('', '⏰ למילוי:');
-      due.forEach(function (l) { var d = l.due.split('-'); out.push('• ' + l.t + ' (עד ' + d[2] + '/' + d[1] + ')'); });
+      due.forEach(function (l) {
+        var d = l.due.split('-');
+        out.push('• ' + l.t + ' (עד ' + d[2] + '/' + d[1] + (l.dueT ? ' ' + l.dueT : '') + (l.rec ? ', ' + l.rec : '') + ')');
+      });
     }
     out.push('', '📄 מסמכים:');
     if (links.length) links.forEach(function (l) { out.push((l.isNew ? '🆕 ' : '✏️ ') + l.t + (l.isNew ? '' : ' (עודכן)')); });
@@ -687,9 +725,10 @@ a.card:focus-visible{box-shadow:inset 0 0 0 2px var(--brand2)}
 .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;font-size:12px;color:var(--muted)}
 .tag{font-size:11.5px;font-weight:700;border-radius:6px;padding:1px 8px}
 .tag.due{background:#e0e7ff;color:#3730a3}.tag.due.soon{background:#fee2e2;color:#b91c1c}.tag.due.past{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
+.tag.rec{background:#f3e8ff;color:#6b21a8}
 .cw.hot{border-color:#fca5a5;box-shadow:0 0 0 3px rgba(239,68,68,.08),var(--shadow)}
 .tag.new{background:#dcfce7;color:#166534}.tag.upd{background:#dbeafe;color:#1e40af}.tag.pin{background:#fef3c7;color:#92400e}.tag.aud{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
-@media (prefers-color-scheme:dark){.tag.due{background:rgba(99,102,241,.2);color:#c7d2fe}.tag.due.soon{background:rgba(239,68,68,.2);color:#fca5a5}.cw.hot{border-color:rgba(239,68,68,.5)}.tag.new{background:rgba(34,197,94,.18);color:#86efac}.tag.upd{background:rgba(59,130,246,.2);color:#93c5fd}.tag.pin{background:rgba(245,158,11,.2);color:#fcd34d}}
+@media (prefers-color-scheme:dark){.tag.rec{background:rgba(168,85,247,.2);color:#d8b4fe}.tag.due{background:rgba(99,102,241,.2);color:#c7d2fe}.tag.due.soon{background:rgba(239,68,68,.2);color:#fca5a5}.cw.hot{border-color:rgba(239,68,68,.5)}.tag.new{background:rgba(34,197,94,.18);color:#86efac}.tag.upd{background:rgba(59,130,246,.2);color:#93c5fd}.tag.pin{background:rgba(245,158,11,.2);color:#fcd34d}}
 .acts{display:flex;justify-content:flex-end;gap:2px;padding:0 8px 8px}
 .act{width:36px;height:36px;display:grid;place-items:center;border:0;background:none;border-radius:10px;color:var(--muted);cursor:pointer;text-decoration:none;transition:.15s}
 .act svg{width:18px;height:18px}
@@ -813,17 +852,22 @@ function seen(x){return role==='all'||x.a==='all'||x.a===role}
 // תג"ב: כמה ימים נשארו (לפי התאריך בדפדפן). null = אין תג"ב
 var T0=new Date();T0.setHours(0,0,0,0);
 function left(l){if(!l.due)return null;var p=l.due.split('-');return Math.round((new Date(+p[0],p[1]-1,+p[2])-T0)/864e5)}
+function past(l){return !!l.dueTs&&l.dueTs<Date.now()}
+// "למילוי" = תג"ב חד-פעמי שעוד לא עבר, או שגרה שהמועד שלה בעוד יומיים או פחות
+function isTodo(l){return !!l.due&&!past(l)&&(!l.rec||left(l)<=2)}
+var DAYN=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
 function dueTag(l){
-  var n=left(l);if(n===null)return '';var p=l.due.split('-'),d=p[2]+'/'+p[1];
-  if(n<0)return '<span class="tag due past">התג"ב עבר ('+d+')</span>';
-  var txt=n===0?'⏰ היום!':n===1?'⏰ עד מחר':n<=3?'⏰ עוד '+n+' ימים':'📅 למילוי עד '+d;
-  return '<span class="tag due'+(n<=3?' soon':'')+'" title="תג״ב '+d+'">'+txt+'</span>';
+  var n=left(l);if(n===null)return '';var p=l.due.split('-'),d=p[2]+'/'+p[1],at=l.dueT?' עד '+l.dueT:'';
+  var rec=l.rec?'<span class="tag rec">🔁 '+l.rec+'</span>':'';
+  if(past(l))return '<span class="tag due past">התג"ב עבר ('+d+')</span>';
+  var txt=n===0?'⏰ היום'+(at||'!'):n===1?'⏰ מחר'+at:n<=3?'⏰ עוד '+n+' ימים':'📅 עד יום '+DAYN[new Date(+p[0],p[1]-1,+p[2]).getDay()]+' '+d+(l.dueT?' '+l.dueT:'');
+  return '<span class="tag due'+(n<=3?' soon':'')+'" title="למילוי עד '+d+(l.dueT?' '+l.dueT:'')+'">'+txt+'</span>'+rec;
 }
 function card(l){
   var f=!!FAV[l.u],u=esc(l.u),n=left(l);
   var tags=dueTag(l)+(l.p?'<span class="tag pin">📌 חשוב</span>':'')+(l.isNew?'<span class="tag new">חדש</span>':'')+(l.isUpd?'<span class="tag upd">עודכן</span>':'')+
     (role==='all'&&l.a!=='all'?'<span class="tag aud">'+AUD[l.a]+'</span>':'');
-  return '<div class="cw'+(n!==null&&n>=0&&n<=3?' hot':'')+'"><a class="card" href="'+u+'" target="_blank" rel="noopener" data-u="'+u+'"><div class="ic t-'+l.type+'">'+ICON[l.type]+'</div><div class="body">'+
+  return '<div class="cw'+(n!==null&&!past(l)&&n<=3?' hot':'')+'"><a class="card" href="'+u+'" target="_blank" rel="noopener" data-u="'+u+'"><div class="ic t-'+l.type+'">'+ICON[l.type]+'</div><div class="body">'+
     '<div class="tt">'+esc(l.t)+'</div>'+(l.d?'<div class="dd">'+esc(l.d)+'</div>':'')+
     '<div class="meta">'+tags+'<span>'+KIND[l.type]+'</span></div></div></a>'+
     '<div class="acts"><button class="act'+(f?' on':'')+'" data-act="fav" data-u="'+u+'" title="'+(f?'הסרה מהמועדפים':'הוספה למועדפים')+'" aria-label="מועדפים" aria-pressed="'+f+'">'+
@@ -845,7 +889,7 @@ function render(){
   var q=norm(document.getElementById('q').value),words=q.split(' ').filter(String);
   var V=D.links.filter(seen);
   var fresh=V.filter(function(l){return l.isNew||l.isUpd}).length,cats={};V.forEach(function(l){cats[l.c]=1});
-  var todo=V.filter(function(l){var n=left(l);return n!==null&&n>=0}).length;
+  var todo=V.filter(isTodo).length;
   document.getElementById('stats').innerHTML='<span class="stat"><b>'+V.length+'</b> מסמכים</span><span class="stat"><b>'+Object.keys(cats).length+'</b> קטגוריות</span>'+
     (todo?'<span class="stat">⏰ <b>'+todo+'</b> למילוי</span>':'')+(fresh?'<span class="stat">🆕 <b>'+fresh+'</b> חדשים ועודכנו</span>':'');
   document.getElementById('msgs').innerHTML=q?'':D.msgs.filter(seen).map(function(m){
@@ -867,11 +911,12 @@ function render(){
   NAV=[];var h='';
   if(!q){
     h+=section('s-fav','⭐','המועדפים שלי',L.filter(function(l){return FAV[l.u]}));
-    // מסמך מופיע רק באזור העליון הראשון שמתאים לו: למילוי > חשוב עכשיו > חדש ועודכן
-    var isTodo=function(l){var n=left(l);return n!==null&&n>=0};
-    h+=section('s-due','⏰','למילוי עד תאריך',L.filter(isTodo).sort(function(a,b){return a.due<b.due?-1:1}));
-    h+=section('s-pin','📌','חשוב עכשיו',L.filter(function(l){return l.p&&!isTodo(l)}));
-    h+=section('s-new','🆕','חדש ועודכן ב-'+D.days+' הימים האחרונים',L.filter(function(l){return (l.isNew||l.isUpd)&&!l.p&&!isTodo(l)}).sort(function(a,b){return b.when-a.when}),MORE?0:FRESH_MAX);
+    // מסמך מופיע רק באזור העליון הראשון שמתאים לו: למילוי > שגרות > חשוב עכשיו > חדש ועודכן
+    var byDue=function(a,b){return a.dueTs-b.dueTs},top=function(l){return isTodo(l)||!!l.rec};
+    h+=section('s-due','⏰','למילוי עד תאריך',L.filter(isTodo).sort(byDue));
+    h+=section('s-rec','🔁','שגרות קבועות',L.filter(function(l){return l.rec&&!isTodo(l)}).sort(byDue));
+    h+=section('s-pin','📌','חשוב עכשיו',L.filter(function(l){return l.p&&!top(l)}));
+    h+=section('s-new','🆕','חדש ועודכן ב-'+D.days+' הימים האחרונים',L.filter(function(l){return (l.isNew||l.isUpd)&&!l.p&&!top(l)}).sort(function(a,b){return b.when-a.when}),MORE?0:FRESH_MAX);
   }
   var cs=(D.cats||[]).slice();L.forEach(function(l){if(cs.indexOf(l.c)<0)cs.push(l.c)});
   cs.forEach(function(c,i){h+=section('s-c'+i,'📂',esc(c),L.filter(function(l){return l.c===c}))});
