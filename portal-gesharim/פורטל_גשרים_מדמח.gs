@@ -455,6 +455,8 @@ a.card{flex:1;display:flex;gap:12px;align-items:flex-start;text-decoration:none;
 .act:hover,.act:focus-visible{background:var(--bg);opacity:1}.act.on{opacity:1;color:#d97706}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.show{opacity:1}
+.more{display:block;margin:12px auto 0;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 18px;font-size:14px;cursor:pointer;color:var(--brand)}
+.more:hover{border-color:var(--brand)}
 .ic{flex:0 0 38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#fff}
 .doc{background:#2563eb}.slides{background:#f59e0b}.sheet{background:#16a34a}.form{background:#7c3aed}.folder{background:#64748b}.file,.link{background:#0f766e}
 .tt{font-weight:bold;font-size:15px;line-height:1.3}.dd{color:var(--muted);font-size:13px;margin-top:4px}
@@ -478,7 +480,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:30px}
 </div>
 <div id="toast" role="status"></div>
 <script>
-var D=__DATA__, role='__ROLE__', ROLE0=role;
+var D=__DATA__, role='__ROLE__', ROLE0=role, MORE=false, FRESH_MAX=6;
 var BYU={};D.links.forEach(function(l){BYU[l.u]=l});
 // מועדפים נשמרים בדפדפן של כל משתמשת (לא בגיליון)
 var FAV={};try{FAV=JSON.parse(localStorage.getItem('gesharim_fav')||'{}')||{}}catch(e){}
@@ -508,9 +510,12 @@ function card(l){
     '<button class="act" data-act="copy" data-u="'+u+'" title="העתקת קישור" aria-label="העתקת קישור">📋</button>'+
     '<a class="act" href="https://wa.me/?text='+esc(encodeURIComponent(l.t+'\n'+l.u))+'" target="_blank" rel="noopener" title="שליחה בוואטסאפ" aria-label="שליחה בוואטסאפ">💬</a></div></div>';
 }
-function section(title,items){
+// max: כמה כרטיסים להציג לפני כפתור "הצג עוד" (0 = הכל)
+function section(title,items,max){
   if(!items.length)return '';
-  return '<h2>'+title+' <span class="n">'+items.length+'</span></h2><div class="grid">'+items.map(card).join('')+'</div>';
+  var cut=max&&items.length>max;
+  return '<h2>'+title+' <span class="n">'+items.length+'</span></h2><div class="grid">'+(cut?items.slice(0,max):items).map(card).join('')+'</div>'+
+    (cut?'<button class="more" data-more>הצג עוד '+(items.length-max)+'</button>':'');
 }
 function render(){
   document.querySelectorAll('.chip').forEach(function(c){c.classList.toggle('on',c.dataset.r===role)});
@@ -524,15 +529,19 @@ function render(){
   if(!q){
     h+=section('⭐ המועדפים שלי',L.filter(function(l){return FAV[l.u]}));
     h+=section('📌 חשוב עכשיו',L.filter(function(l){return l.p}));
-    h+=section('🆕 חדש ועודכן ב-'+D.days+' הימים האחרונים',L.filter(function(l){return l.isNew||l.isUpd}).sort(function(a,b){return b.when-a.when}));
+    // מסמך מוצמד כבר מופיע ב"חשוב עכשיו", אז לא מכפילים אותו כאן
+    h+=section('🆕 חדש ועודכן ב-'+D.days+' הימים האחרונים',L.filter(function(l){return (l.isNew||l.isUpd)&&!l.p}).sort(function(a,b){return b.when-a.when}),MORE?0:FRESH_MAX);
   }
   var cats=(D.cats||[]).slice();L.forEach(function(l){if(cats.indexOf(l.c)<0)cats.push(l.c)});
   cats.forEach(function(c){h+=section('📂 '+esc(c),L.filter(function(l){return l.c===c}))});
   document.getElementById('out').innerHTML=h;
 }
 document.querySelectorAll('.chip').forEach(function(c){c.onclick=function(){role=c.dataset.r;render()}});
+// בקישור ייעודי (?role=m / ?role=n) מסתירים את בחירת הקהל. זו הסתרה בתצוגה בלבד, לא חסימת גישה.
+if(ROLE0!=='all')document.querySelectorAll('.chip').forEach(function(c){c.style.display='none'});
 document.getElementById('q').oninput=render;
 document.getElementById('out').addEventListener('click',function(e){
+  if(e.target.closest('button[data-more]')){MORE=true;render();return}
   var b=e.target.closest('button[data-act]');
   if(b){
     var u=b.getAttribute('data-u');
