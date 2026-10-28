@@ -841,6 +841,24 @@ var ICON={
 var STAR='<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
 var COPY=P+'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
 var WA=P+'<path d="M20.5 11.6a8.5 8.5 0 0 1-12.6 7.5L3.5 20.5l1.4-4.2a8.5 8.5 0 1 1 15.6-4.7z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5"/></svg>';
+var CAL=P+'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>';
+// "הוסף ליומן": אירוע מוכן ביומן גוגל של המשתמשת. עם שעה = חצי שעה שמסתיימת בשעת התג"ב, בלי שעה = יום שלם.
+// בשגרה האירוע חוזר כל שבוע / שבועיים. שום דבר לא נשלח, המשתמשת שומרת בעצמה.
+function calUrl(l){
+  var d=l.due.replace(/-/g,''),dates;
+  if(l.dueT){
+    var p=l.due.split('-'),t=l.dueT.split(':'),end=new Date(+p[0],p[1]-1,+p[2],+t[0],+t[1]),st=new Date(end.getTime()-30*6e4);
+    var f=function(x){return x.getFullYear()+('0'+(x.getMonth()+1)).slice(-2)+('0'+x.getDate()).slice(-2)+'T'+('0'+x.getHours()).slice(-2)+('0'+x.getMinutes()).slice(-2)+'00'};
+    dates=f(st)+'/'+f(end);
+  }else{
+    var p2=l.due.split('-'),n=new Date(+p2[0],p2[1]-1,+p2[2]+1);
+    dates=d+'/'+n.getFullYear()+('0'+(n.getMonth()+1)).slice(-2)+('0'+n.getDate()).slice(-2);
+  }
+  var q='action=TEMPLATE&text='+encodeURIComponent('⏰ '+l.t)+'&dates='+dates+'&ctz=Asia/Jerusalem'+
+    '&details='+encodeURIComponent('למילוי'+(l.dueT?' עד '+l.dueT:'')+(l.rec?' ('+l.rec+')':'')+'\n'+l.u);
+  if(l.rec)q+='&recur='+encodeURIComponent('RRULE:FREQ=WEEKLY;INTERVAL='+(l.rec.indexOf('שבועיים')>-1?2:1));
+  return 'https://calendar.google.com/calendar/render?'+q;
+}
 var KIND={doc:'מסמך',slides:'מצגת',sheet:'גיליון',form:'טופס',folder:'תיקייה',file:'קובץ',link:'קישור'};
 var AUD={all:'',m:'למש"קיות',n:'למנה"דים'};
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -872,6 +890,7 @@ function card(l){
     '<div class="meta">'+tags+'<span>'+KIND[l.type]+'</span></div></div></a>'+
     '<div class="acts"><button class="act'+(f?' on':'')+'" data-act="fav" data-u="'+u+'" title="'+(f?'הסרה מהמועדפים':'הוספה למועדפים')+'" aria-label="מועדפים" aria-pressed="'+f+'">'+
       P.replace('fill="none"','fill="'+(f?'currentColor':'none')+'"')+STAR+'</button>'+
+    (l.due&&!past(l)?'<a class="act" href="'+esc(calUrl(l))+'" target="_blank" rel="noopener" title="הוספה ליומן" aria-label="הוספה ליומן">'+CAL+'</a>':'')+
     '<button class="act" data-act="copy" data-u="'+u+'" title="העתקת קישור" aria-label="העתקת קישור">'+COPY+'</button>'+
     '<a class="act" href="https://wa.me/?text='+esc(encodeURIComponent(l.t+'\n'+l.u))+'" target="_blank" rel="noopener" title="שליחה בוואטסאפ" aria-label="שליחה בוואטסאפ">'+WA+'</a></div></div>';
 }
