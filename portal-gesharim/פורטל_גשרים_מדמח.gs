@@ -992,12 +992,17 @@ mark{background:#fde68a;color:inherit;border-radius:3px;padding:0 1px}
 @media (prefers-color-scheme:dark){.tip{color:#5eead4}.tip button{color:#5eead4}}
 .tip button{border:0;background:var(--surface);color:var(--brand);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
 .tip .tipx{background:none;padding:4px 6px;font-size:18px;color:var(--muted)}
-.search{margin-top:-30px;position:relative;z-index:3}
 .box{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow2);padding:0 18px;color:var(--muted)}
 .box svg{width:20px;height:20px;flex:0 0 auto}
 #q{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:16.5px;padding:16px 0;color:var(--ink)}
 #q::placeholder{color:var(--muted)}
-.nav{position:sticky;top:0;z-index:4;background:var(--bg);background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+/* הסרגל הצף: חיפוש + שורת הקטגוריות. בראש הדף הוא חופף לתחתית הכותרת, ובגלילה נצמד למעלה עם רקע */
+.nav{position:sticky;top:0;z-index:5;margin-top:-30px;transition:background .15s,box-shadow .15s}
+.nav.stuck{background:var(--bg);box-shadow:0 6px 18px rgba(15,23,42,.08)}
+.nav .box{transition:box-shadow .15s}
+.nav.stuck .box{box-shadow:var(--shadow);margin-top:8px}
+.nav.stuck #q{padding:11px 0}
+@media (prefers-color-scheme:dark){.nav.stuck{box-shadow:0 6px 18px rgba(0,0,0,.45)}}
 .pills{display:flex;gap:8px;overflow-x:auto;padding:14px 0 10px;scrollbar-width:none}
 .pills::-webkit-scrollbar{display:none}
 .pill{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap;transition:.15s}
@@ -1015,11 +1020,30 @@ mark{background:#fde68a;color:inherit;border-radius:3px;padding:0 1px}
 .msg.urgent{border-inline-start-color:#ef4444;background:color-mix(in srgb,#ef4444 9%,var(--surface))}
 
 /* ---- אזורים וכרטיסים */
-.sec{margin-top:30px;scroll-margin-top:96px}
-.subh{display:flex;align-items:center;gap:8px;margin:18px 2px 10px;font-size:14.5px;font-weight:700;color:var(--muted);scroll-margin-top:96px}
-.subh:after{content:"";flex:1;height:1px;background:var(--line)}
-.subh span{font-size:11.5px;font-weight:600;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:0 7px}
-.sec .grid+.subh{margin-top:22px}
+.sec{margin-top:30px;scroll-margin-top:150px}
+/* קטגוריה מקופלת: כותרת שהיא כפתור. תת-קטגוריה: שורה מקופלת בתוך הקטגוריה */
+.catsec{margin-top:12px}
+.cath{display:flex;align-items:center;gap:12px;width:100%;text-align:start;border:1px solid var(--line);border-inline-start:4px solid var(--k);background:var(--surface);color:var(--ink);
+  border-radius:16px;padding:12px 14px;cursor:pointer;box-shadow:var(--shadow);font-size:17px;transition:border-color .15s,box-shadow .15s}
+.cath:hover{box-shadow:var(--shadow2)}
+.cath .hi{flex:0 0 38px;height:38px;border-radius:12px;background:var(--ks);display:grid;place-items:center;font-size:19px}
+.cath .ct{flex:1;min-width:0;display:flex;flex-direction:column}
+.cath .ct b{font-weight:700;line-height:1.3}
+.cath .ct small{color:var(--muted);font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cath .n,.subh .n{font-size:12px;font-weight:700;color:var(--muted);background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:1px 9px}
+.chev{width:22px;height:22px;flex:0 0 22px;display:grid;place-items:center;color:var(--muted);transition:transform .2s}
+.chev:before{content:"";width:8px;height:8px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(-45deg)}
+.open>.cath .chev,.subh[aria-expanded=true] .chev{transform:rotate(180deg)}
+.open>.cath{border-radius:16px 16px 6px 6px}
+.catbody{padding:12px 0 6px}
+.subh{display:flex;align-items:center;gap:10px;width:100%;margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);
+  color:var(--k);font-size:15px;font-weight:700;text-align:start;cursor:pointer;scroll-margin-top:150px}
+.subh .st{flex:1}
+.subh[aria-expanded=true]{margin-bottom:12px}
+.subgrid{margin-bottom:14px}
+.cathead{display:flex;align-items:center;gap:10px;margin-top:30px;scroll-margin-top:150px}
+.cathead h2{flex:1;margin:0}
+.xall{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:9px 12px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:var(--shadow);white-space:nowrap}
 .archt{display:flex;align-items:center;gap:10px;width:100%;border:1px dashed var(--line);background:none;color:var(--muted);border-radius:14px;padding:12px 14px;font-size:16px;font-weight:700;cursor:pointer;text-align:start}
 .archt .hi{width:30px;height:30px;border-radius:10px;background:var(--surface2);display:grid;place-items:center}
 .archt .chev{margin-inline-start:auto}
@@ -1133,17 +1157,8 @@ body.list .acts{padding:0 8px 0 6px;align-self:center}
 .pill.cat.on .dot{background:#fff}
 
 /* ---- נייד: פס עליון מכווץ וסרגל ניווט תחתון */
-.mini,.bnav{display:none}
+.bnav{display:none}
 @media (max-width:700px){
-  .mini{display:block;position:fixed;top:0;left:0;right:0;z-index:6;height:52px;color:#fff;background:linear-gradient(135deg,#0f766e,#0e7490 50%,#1e3a8a);box-shadow:0 4px 16px rgba(15,23,42,.18);transform:translateY(-105%);transition:transform .22s ease}
-  body.compact .mini{transform:none}
-  .mini .wrap{display:flex;align-items:center;gap:10px;height:52px}
-  .mt{flex:1;font-weight:800;font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-  .mq{width:38px;height:38px;border:0;border-radius:12px;background:rgba(255,255,255,.18);color:#fff;display:grid;place-items:center;cursor:pointer}
-  .mq svg{width:19px;height:19px}
-  .nav{transition:top .22s ease}
-  body.compact .nav{top:52px}
-  .sec,.subh{scroll-margin-top:152px}
   .bnav{display:flex;align-items:flex-end;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);
     padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -6px 22px rgba(15,23,42,.08)}
   .bnav button{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;color:var(--muted);font-size:11.5px;font-weight:600;padding:3px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -1174,7 +1189,7 @@ body.list .acts{padding:0 8px 0 6px;align-self:center}
   <div class="stats" id="stats"></div>
   <div class="seg" id="seg" hidden><button class="chip" data-r="all">הכל</button><button class="chip" data-r="m">מש"קיות</button><button class="chip" data-r="n">מנה"דים</button></div>
 </div></header>
-<div class="wrap search"><label class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="חיפוש מסמך, נושא או קטגוריה..." autocomplete="off" aria-label="חיפוש"></label></div>
+<div class="nav" id="nav"><div class="wrap"><label class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="חיפוש מסמך, נושא או קטגוריה..." autocomplete="off" aria-label="חיפוש"></label><div class="pills" id="pills"></div><div class="crumb" id="crumb"></div></div></div>
 <div class="wrap tools">
   <label class="sel"><span class="sr">סוג קובץ</span><select id="ftype" aria-label="סינון לפי סוג קובץ"></select></label>
   <label class="sel"><span class="sr">מיון</span><select id="fsort" aria-label="מיון בתוך הקטגוריות">
@@ -1184,11 +1199,9 @@ body.list .acts{padding:0 8px 0 6px;align-self:center}
     <button type="button" data-view="list" title="רשימה" aria-label="תצוגת רשימה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg></button>
   </div>
 </div>
-<div class="nav"><div class="wrap"><div class="pills" id="pills"></div><div class="crumb" id="crumb"></div></div></div>
 <main class="wrap"><div class="tip" id="tip" hidden><span>📲 שמרו את הפורטל במסך הבית, ותמיד יהיה בהישג יד</span><button type="button" data-a2hs>איך?</button><button type="button" class="tipx" data-tipx aria-label="סגירה">×</button></div>
 <div id="msgs"></div><div id="out"></div></main>
 <footer>הפורטל מתעדכן אוטומטית · נבנה עבור צוות גשרים מדמ"ח · המרכז לחינוך סייבר<br><button type="button" class="flink" data-a2hs>📲 הוספה למסך הבית</button></footer>
-<div class="mini" id="mini"><div class="wrap"><span class="mt">🌉 __TITLE__</span><button type="button" class="mq" data-search aria-label="חיפוש"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button></div></div>
 <nav class="bnav" id="bnav" aria-label="ניווט מהיר">
   <button type="button" data-bn="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg><span>ראשי</span></button>
   <button type="button" data-bn="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span>חיפוש</span></button>
@@ -1398,22 +1411,37 @@ function card(l,showCat){
 }
 function grid(items,showCat){return '<div class="grid">'+items.map(function(l){return card(l,showCat)}).join('')+'</div>'}
 // תת-קטגוריות: מסמכים בלי תת-קטגוריה ראשונים, ואחריהם כל תת-קטגוריה לפי הסדר שבו היא מופיעה לראשונה בגיליון
-function bySubs(items){
+// קטגוריות ותת-קטגוריות נטענות מקופלות. OPEN/SOPEN = מה שהמשתמשת פתחה. בחיפוש או בסינון הכל פתוח (FORCE)
+var OPEN={},SOPEN={},FORCE=false,ALLC=[],ALLS=[];
+function bySubs(items,cat){
   var g={},first={};
   items.forEach(function(l){var k=l.s||'';(g[k]=g[k]||[]).push(l);if(!(k in first)||l.i<first[k])first[k]=l.i});
   var keys=Object.keys(g);
   if(keys.length===1&&!keys[0])return grid(items);
   keys.sort(function(a,b){return (a?1:0)-(b?1:0)||first[a]-first[b]});
-  return keys.map(function(k){return (k?'<h3 class="subh" data-sub="'+esc(k)+'">'+esc(k)+' <span>'+g[k].length+'</span></h3>':'')+grid(g[k])}).join('');
+  return keys.map(function(k){
+    if(!k)return grid(g[k]);
+    var key=cat+'|'+k,open=FORCE||!!SOPEN[key];ALLS.push(key);
+    return '<button type="button" class="subh" data-sub="'+esc(k)+'" data-sk="'+esc(key)+'" aria-expanded="'+open+'"><span class="st">'+esc(k)+'</span><span class="n">'+g[k].length+'</span><span class="chev" aria-hidden="true"></span></button>'+
+      (open?'<div class="subgrid">'+grid(g[k])+'</div>':'');
+  }).join('');
 }
 // max: כמה כרטיסים להציג לפני כפתור "הצג עוד" (0 = הכל). cat: אזור של קטגוריה אחת (עם הצבע שלה ותת-קטגוריות)
 var NAV=[];
 function section(id,icon,title,items,max,cat){
   if(!items.length)return '';
   NAV.push({id:id,t:title,n:items.length,c:cat});
+  if(cat){
+    var open=FORCE||!!OPEN[cat],subs=[];ALLC.push(cat);
+    items.forEach(function(l){if(l.s&&subs.indexOf(l.s)<0)subs.push(l.s)});
+    return '<section class="sec cat catsec'+(open?' open':'')+'" id="'+id+'" data-t="'+esc(title)+'" style="'+cvars(cat)+'">'+
+      '<button type="button" class="cath" data-cat="'+esc(cat)+'" aria-expanded="'+open+'"><span class="hi">'+(CM[cat]?CM[cat].e:icon)+'</span>'+
+      '<span class="ct"><b>'+esc(title)+'</b>'+(subs.length?'<small>'+esc(subs.join(' · '))+'</small>':'')+'</span><span class="n">'+items.length+'</span><span class="chev" aria-hidden="true"></span></button>'+
+      (open?'<div class="catbody">'+bySubs(items,cat)+'</div>':'')+'</section>';
+  }
   var cut=max&&items.length>max,show=cut?items.slice(0,max):items;
-  return '<section class="sec'+(cat?' cat':'')+'" id="'+id+'" data-t="'+esc(title)+'"'+(cat?' style="'+cvars(cat)+'"':'')+'><h2><span class="hi">'+(cat&&CM[cat]?CM[cat].e:icon)+'</span>'+esc(title)+' <span class="n">'+items.length+'</span></h2>'+
-    (cat?bySubs(show):grid(show,true))+(cut?'<button class="more" data-more>הצג עוד '+(items.length-max)+'</button>':'')+'</section>';
+  return '<section class="sec" id="'+id+'" data-t="'+esc(title)+'"><h2><span class="hi">'+icon+'</span>'+esc(title)+' <span class="n">'+items.length+'</span></h2>'+
+    grid(show,true)+(cut?'<button class="more" data-more>הצג עוד '+(items.length-max)+'</button>':'')+'</section>';
 }
 function tools(V){
   var have={};V.forEach(function(l){have[l.type]=(have[l.type]||0)+1});
@@ -1428,7 +1456,7 @@ function render(){
   roll();
   document.querySelectorAll('.chip').forEach(function(c){c.classList.toggle('on',c.dataset.r===role)});
   var raw=document.getElementById('q').value,q=norm(raw),words=q.split(' ').filter(String);
-  HRE=makeHre(words);
+  HRE=makeHre(words);FORCE=!!(words.length||FTYPE);ALLC=[];ALLS=[];
   var V=D.links.filter(seen),A=V.filter(function(l){return !l.x});
   var fresh=A.filter(function(l){return l.isNew||l.isUpd}).length,cats={};A.forEach(function(l){cats[l.c]=1});
   var todo=A.filter(isTodo).length;
@@ -1466,7 +1494,13 @@ function render(){
     h+=section('s-new','🆕','חדש ועודכן ב-'+D.days+' הימים האחרונים',act.filter(function(l){return (l.isNew||l.isUpd)&&!l.p&&!top(l)}).sort(function(a,b){return b.when-a.when}),MORE?0:FRESH_MAX);
   }
   var cs=(D.cats||[]).slice();act.forEach(function(l){if(cs.indexOf(l.c)<0)cs.push(l.c)});
-  cs.forEach(function(c,i){h+=section('s-c'+i,'📂',c,act.filter(function(l){return l.c===c}).sort(srt),0,c)});
+  var ch='';cs.forEach(function(c,i){ch+=section('s-c'+i,'📂',c,act.filter(function(l){return l.c===c}).sort(srt),0,c)});
+  // כותרת לרשימת הקטגוריות, עם כפתור פתיחה/צמצום של הכל (לא בחיפוש, שבו הכל פתוח ממילא)
+  if(ch){
+    var allOpen=ALLC.every(function(c){return OPEN[c]})&&ALLS.every(function(k){return SOPEN[k]});
+    h+='<div class="cathead"><h2><span class="hi">📂</span>'+(FORCE?'תוצאות לפי קטגוריה':'קטגוריות')+'</h2>'+
+      (FORCE?'':'<button type="button" class="xall" data-xall="'+(allOpen?'1':'')+'">'+(allOpen?'▴ צמצום הכל':'▾ פתיחת הכל')+'</button>')+'</div>'+ch;
+  }
   var AR=q?[]:L.filter(function(l){return l.x}).sort(srt);
   if(AR.length){
     NAV.push({id:'s-arch',t:'ארכיון',n:AR.length});
@@ -1475,7 +1509,7 @@ function render(){
   }
   document.getElementById('out').innerHTML=h;
   pills.innerHTML=q||FTYPE?'<div class="res">'+L.length+' תוצאות'+(FTYPE?' · '+TYPES[FTYPE]:'')+'</div>':NAV.map(function(s){
-    return '<button class="pill'+(s.c?' cat':'')+'" data-go="'+s.id+'"'+(s.c?' style="'+cvars(s.c)+'"':'')+'>'+(s.c?'<i class="dot"></i>':'')+esc(s.t.replace(/ ב-\d+ הימים האחרונים/,''))+'<small>'+s.n+'</small></button>';
+    return '<button class="pill'+(s.c?' cat':'')+'" data-go="'+s.id+'"'+(s.c?' data-c="'+esc(s.c)+'"':'')+(s.c?' style="'+cvars(s.c)+'"':'')+'>'+(s.c?'<i class="dot"></i>':'')+esc(s.t.replace(/ ב-\d+ הימים האחרונים/,''))+'<small>'+s.n+'</small></button>';
   }).join('');
   spy();
 }
@@ -1500,7 +1534,7 @@ function spy(){
   }
   document.getElementById('totop').classList.toggle('show',window.scrollY>700);
   // בנייד: כשהכותרת הגדולה יוצאת מהמסך, מופיע פס עליון דק
-  document.body.classList.toggle('compact',document.querySelector('.hero').getBoundingClientRect().bottom<0);
+  document.getElementById('nav').classList.toggle('stuck',document.querySelector('.hero').getBoundingClientRect().bottom<1);
   var qf=document.activeElement===document.getElementById('q');
   var bn=qf?'search':id==='s-fav'?'fav':id==='s-due'?'due':'home';
   document.querySelectorAll('[data-bn]').forEach(function(b){b.classList.toggle('on',b.dataset.bn===bn)});
@@ -1512,16 +1546,23 @@ document.querySelectorAll('.chip').forEach(function(c){c.onclick=function(){role
 // בקישור ייעודי (?role=m / ?role=n) מסתירים את בחירת הקהל. זו הסתרה בתצוגה בלבד, לא חסימת גישה.
 if(ROLE0==='all')document.getElementById('seg').hidden=false;
 else{var w=document.getElementById('who');w.textContent=ROLE0==='m'?'מש"קיות':'מנה"דים';w.hidden=false}
-var qt;document.getElementById('q').oninput=function(){clearTimeout(qt);qt=setTimeout(render,D.links.length>80?150:0)};
+var qt;document.getElementById('q').oninput=function(){clearTimeout(qt);qt=setTimeout(function(){
+  render();
+  var t=document.querySelector('.tools'),y=t.getBoundingClientRect().top+window.scrollY-document.getElementById('nav').offsetHeight;
+  if(window.scrollY>y)window.scrollTo({top:Math.max(0,y)});
+},D.links.length>80?150:0)};
 document.getElementById('pills').addEventListener('click',function(e){
-  var b=e.target.closest('[data-go]');if(b)document.getElementById(b.dataset.go).scrollIntoView({behavior:'smooth',block:'start'});
+  var b=e.target.closest('[data-go]');if(!b)return;
+  if(b.dataset.c&&!OPEN[b.dataset.c]){OPEN[b.dataset.c]=true;render()}
+  document.getElementById(b.dataset.go).scrollIntoView({behavior:'smooth',block:'start'});
 });
 document.getElementById('ftype').onchange=function(){FTYPE=this.value;render();window.scrollTo({top:0})};
 document.getElementById('fsort').onchange=function(){SORT=this.value;store('gesharim_sort',SORT);render()};
 document.querySelectorAll('[data-view]').forEach(function(b){b.onclick=function(){VIEW=b.dataset.view;store('gesharim_view',VIEW);render()}});
 document.getElementById('crumb').addEventListener('click',function(e){if(e.target.closest('[data-top]'))window.scrollTo({top:0,behavior:'smooth'})});
 document.getElementById('totop').onclick=function(){window.scrollTo({top:0,behavior:'smooth'})};
-function focusSearch(){var q=document.getElementById('q');q.focus({preventScroll:true});window.scrollTo({top:0,behavior:'smooth'});spy()}
+// שורת החיפוש צפה תמיד, אז לא צריך לגלול אליה
+function focusSearch(){document.getElementById('q').focus({preventScroll:true});spy()}
 // קפיצה לאזור. בחיפוש פעיל האזורים העליונים מוסתרים, אז קודם מנקים את החיפוש והסינון
 function goSec(id,none){
   var q=document.getElementById('q');
@@ -1538,11 +1579,29 @@ document.getElementById('bnav').addEventListener('click',function(e){
   else if(k==='fav')goSec('s-fav','עוד אין מועדפים. לוחצים ☆ על מסמך כדי להוסיף');
   else if(k==='due')goSec('s-due','אין כרגע מסמכים למילוי 🎉');
 });
-document.getElementById('mini').addEventListener('click',function(e){if(e.target.closest('[data-search]'))focusSearch();else window.scrollTo({top:0,behavior:'smooth'})});
 document.getElementById('q').addEventListener('focus',spy);
 document.getElementById('q').addEventListener('blur',function(){setTimeout(spy,50)});
+// פתיחה וצמצום. אחרי צמצום, אם הכותרת ברחה מעל המסך, מחזירים אותה לתצוגה
+function keepInView(el){
+  if(!el)return;var top=el.getBoundingClientRect().top,nav=document.getElementById('nav').getBoundingClientRect().bottom;
+  if(top<nav)el.scrollIntoView({block:'start'});
+}
+function toggleAll(open){
+  ALLC.forEach(function(c){OPEN[c]=open});ALLS.forEach(function(k){SOPEN[k]=open});
+  render();
+  // תת-קטגוריות מופיעות רק אחרי שהקטגוריה שלהן נפתחה, אז בפתיחה עוברים פעם שנייה
+  if(open){ALLS.forEach(function(k){SOPEN[k]=true});render()}
+  keepInView(document.querySelector('.cathead'));
+}
 document.getElementById('out').addEventListener('click',function(e){
   if(e.target.closest('button[data-more]')){MORE=true;render();return}
+  var xa=e.target.closest('button[data-xall]');
+  if(xa){toggleAll(!xa.dataset.xall);return}
+  var ch=e.target.closest('button[data-cat]');
+  if(ch){var c=ch.dataset.cat,id=ch.parentNode.id;OPEN[c]=!OPEN[c];render();keepInView(document.getElementById(id));return}
+  var sh=e.target.closest('button[data-sk]');
+  if(sh){var k=sh.dataset.sk,sid=sh.closest('.sec').id;SOPEN[k]=!SOPEN[k];render();
+    keepInView([].filter.call(document.querySelectorAll('#'+sid+' [data-sk]'),function(x){return x.dataset.sk===k})[0]);return}
   if(e.target.closest('button[data-arch]')){
     ARCH_OPEN=!ARCH_OPEN;render();
     if(ARCH_OPEN)document.getElementById('s-arch').scrollIntoView({behavior:'smooth',block:'start'});
