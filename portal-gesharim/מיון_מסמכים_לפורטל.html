@@ -1,0 +1,226 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0"><title>מיון מסמכים לפורטל</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&family=Rubik:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* פריסה: עמודה אחת של כרטיסים לפי קבוצות, סרגל החלטה דביק למעלה, תוצאה בסוף */
+:root{
+  --bg:#f2f4f7;--surface:#ffffff;--sunk:#f6f7f9;--ink:#141a24;--muted:#5c6575;--line:#dfe3ea;
+  --brand:#0e6f68;--brand-soft:#d9f1ed;
+  --yes:#15803d;--yes-soft:#dcfce7;--maybe:#b45309;--maybe-soft:#fef3c7;--no:#64748b;--no-soft:#eceff3;
+  --warn:#9a5b06;--star:#d97706;
+  --f-display:"Rubik","Heebo",Arial,sans-serif;--f-body:"Heebo",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1118;--surface:#161c27;--sunk:#111621;--ink:#e6eaf1;--muted:#9aa4b5;--line:#263042;
+  --brand:#3cc7b8;--brand-soft:#123b38;
+  --yes:#4ade80;--yes-soft:#123222;--maybe:#fbbf24;--maybe-soft:#3a2c0d;--no:#94a3b8;--no-soft:#1f2735;
+  --warn:#f5b955;--star:#fbbf24;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1118;--surface:#161c27;--sunk:#111621;--ink:#e6eaf1;--muted:#9aa4b5;--line:#263042;
+  --brand:#3cc7b8;--brand-soft:#123b38;
+  --yes:#4ade80;--yes-soft:#123222;--maybe:#fbbf24;--maybe-soft:#3a2c0d;--no:#94a3b8;--no-soft:#1f2735;
+  --warn:#f5b955;--star:#fbbf24;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;direction:rtl}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{padding-block:28px 18px}
+h1{font-family:var(--f-display);font-size:28px;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:6px 0 0;max-width:62ch}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 4px 14px rgba(15,23,42,.06)}
+.bar .wrap{display:flex;flex-direction:column;gap:10px;padding-block:12px}
+.prog{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--sunk)}
+.prog i{display:block;height:100%;transition:width .2s}
+.prog .y{background:var(--yes)}.prog .m{background:var(--maybe)}.prog .n{background:var(--no)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.counts{display:flex;flex-wrap:wrap;gap:12px;font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.counts b{color:var(--ink)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-inline-end:5px;vertical-align:0}
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:5px 12px;font:inherit;font-size:13.5px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--sunk);color:var(--ink);border-radius:10px;padding:7px 12px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--surface)}
+.btn:focus-visible,.chip:focus-visible,.seg input:focus-visible+span,select:focus-visible,a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+main{padding-block:8px 40px;display:flex;flex-direction:column;gap:28px}
+.group h2{font-family:var(--f-display);font-size:18px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.group h2 small{font-family:var(--f-body);font-weight:500;font-size:13px;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:10px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-inline-start:5px solid var(--line);transition:border-color .15s,background .15s}
+.item[data-s="y"]{border-inline-start-color:var(--yes)}
+.item[data-s="m"]{border-inline-start-color:var(--maybe)}
+.item[data-s="y"]{background:var(--yes-soft)}
+.head{display:flex;gap:10px;align-items:flex-start}
+.num{flex:0 0 auto;min-width:30px;height:26px;border-radius:8px;background:var(--sunk);border:1px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
+.t{flex:1;min-width:0}
+.t a{color:var(--ink);font-weight:700;font-size:16px;text-decoration:none;overflow-wrap:anywhere}
+.t a:hover{text-decoration:underline}
+.t a .ext{font-weight:400;color:var(--muted);font-size:13px;margin-inline-start:4px}
+.star{flex:0 0 auto;font-size:12px;font-weight:700;color:var(--star);background:var(--maybe-soft);border-radius:99px;padding:2px 9px;white-space:nowrap}
+.what{margin:0;color:var(--ink)}
+.note{margin:0;font-size:13.5px;color:var(--warn)}
+.note::before{content:"⚠ ";}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pick{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:14.5px;color:var(--muted)}
+.pick input{appearance:none;-webkit-appearance:none;width:26px;height:26px;margin:0;border:2px solid var(--line);border-radius:8px;background:var(--surface);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+.pick input:checked{background:var(--yes);border-color:var(--yes)}
+.pick input:checked::after{content:"";width:7px;height:13px;border:solid var(--surface);border-width:0 3px 3px 0;transform:translateY(-2px) rotate(45deg)}
+.pick input:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.item[data-s="y"] .pick{color:var(--yes)}
+.gpick{font-family:var(--f-body);font-size:13px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:6px;margin-inline-start:auto;cursor:pointer}
+.gpick input{width:20px;height:20px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--sunk)}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg span{display:block;padding:7px 14px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;min-width:58px;text-align:center}
+.seg label+label span{border-inline-start:1px solid var(--line)}
+.seg input[value="y"]:checked+span{background:var(--yes-soft);color:var(--yes)}
+.seg input[value="m"]:checked+span{background:var(--maybe-soft);color:var(--maybe)}
+.seg input[value="n"]:checked+span{background:var(--no-soft);color:var(--no)}
+.sel{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:6px 8px;max-width:100%}
+.result{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.result h2{font-family:var(--f-display);font-size:20px;margin:0}
+.result p{margin:0;color:var(--muted);max-width:65ch}
+textarea{width:100%;min-height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:10px;direction:rtl;resize:vertical}
+.ok{color:var(--yes);font-size:13.5px;font-weight:600}
+.excl{color:var(--muted);font-size:14px}
+.excl ul{margin:6px 0 0;padding-inline-start:20px}
+.empty{color:var(--muted);text-align:center;padding:30px 0}
+@media (max-width:520px){.filters{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.chip{flex:0 0 auto}h1{font-size:23px}.seg span{padding:8px 10px;min-width:52px}.item{padding:12px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top"><div class="wrap">
+  <h1>מיון מסמכים לפורטל</h1>
+  <p class="lead">63 מסמכים שמצאתי בתיקיית גשרים מדמ"ח. מסמנים ✓ על כל מסמך שרוצים בפורטל (אפשר גם לסמן קבוצה שלמה בבת אחת), ואפשר לשנות קהל וקטגוריה. בסוף הדף מחכה תוצאה מוכנה להעתקה. הבחירות נשמרות בדפדפן הזה, כך שאפשר לסגור ולחזור.</p>
+</div></header>
+
+<div class="bar"><div class="wrap">
+  <div class="prog" aria-hidden="true"><i class="y" id="py"></i></div>
+  <div class="row">
+    <div class="counts" id="counts"></div>
+    <span class="spacer"></span>
+    <button class="btn" id="stars" type="button">⭐ סמן את המומלצים</button>
+    <a class="btn primary" href="#result">לתוצאה ↓</a>
+  </div>
+  <div class="filters" role="group" aria-label="סינון">
+    <button class="chip" data-f="all" aria-pressed="true" type="button">הכל</button>
+    <button class="chip" data-f="y" aria-pressed="false" type="button">✓ מסומנים</button>
+    <button class="chip" data-f="u" aria-pressed="false" type="button">לא מסומנים</button>
+    <button class="chip" data-f="star" aria-pressed="false" type="button">⭐ מומלצים</button>
+  </div>
+</div></div>
+
+<main class="wrap">
+  <div id="groups"></div>
+
+  <section class="result" id="result">
+    <h2>התוצאה</h2>
+    <p><b>1. לשלוח לי:</b> מעתיקים ומדביקים בצ'אט, ואני מכין את ההוספה לפורטל.</p>
+    <textarea id="outMsg" readonly aria-label="סיכום הבחירות"></textarea>
+    <div class="row"><button class="btn primary" type="button" data-copy="outMsg">העתקת הסיכום</button><span class="ok" id="okMsg" hidden>הועתק ✓</span></div>
+    <p><b>2. או ישר לגיליון:</b> השורות של מה שסימנת, בסדר העמודות של לשונית "קישורים" (כותרת, קישור, קטגוריה, מש"קיות, מנה"דים, תיאור). מעתיקים, עומדים על התא הראשון בעמודה A בשורה הריקה הראשונה, ומדביקים.</p>
+    <textarea id="outTsv" readonly aria-label="שורות לגיליון"></textarea>
+    <div class="row"><button class="btn" type="button" data-copy="outTsv">העתקת השורות לגיליון</button><span class="ok" id="okTsv" hidden>הועתק ✓</span><span class="spacer"></span><button class="btn" type="button" id="reset">ביטול כל הסימונים</button></div>
+    <p id="resetAsk" hidden><b>לבטל את כל הסימונים?</b> <button class="btn" type="button" id="resetYes">כן, לאפס</button> <button class="btn" type="button" id="resetNo">ביטול</button></p>
+  </section>
+
+  <section class="excl">
+    <b>🔒 לא נכללו ברשימה (מידע אישי):</b>
+    <ul>
+      <li>תיקיות "שיחות אישיות תלמידים", "שיחות אישיות עם תלמידים" ו"נשר תלמידים". לא נפתחו.</li>
+      <li>"שיבוצים לזה"ת": כולל שמות ומספרים אישיים של מש"קיות.</li>
+      <li>קבצי עבודה אישיים: התיקייה "פ"ע", "תצפיות_אלמוג" ותיקיית "תובנות מנה"דים".</li>
+      <li>נתוני תלמידים: תגובות לשאלונים, "פילוח שכבת ט'", גיליון קבוצות המיקוד ו"נוכחות מש"קיות".</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+var ITEMS=[{"n": 1, "g": "תוכן ושיעורים", "t": "לינקים שנה א - גשרים פלוס", "u": "https://docs.google.com/document/d/1fdK414-okbBdNMeRELv_c2O5clGwPYfkIbV7i9ceP0A", "w": "טבלה עם כל הקישורים לכל מפגש בשנה א': מחברת קולאב, מצגת, אתר, ומערך למורה לכל יחידה", "a": "m", "note": "עודכן באוקטובר 2026", "r": 1}, {"n": 2, "g": "תוכן ושיעורים", "t": "סילבוס גשרים מדמ\"ח", "u": "https://docs.google.com/document/d/1lDwdiWFFNoYI2Nj858xebtQdIrq70hUprIndEP1zfc4", "w": "רשימת כל המפגשים בשנה א' (1.1 עד 6.2) ובשנה ב' (7.1 והלאה), כולל איפה נמצאים האקזיט טיקטים", "a": "b", "note": "בפורטל יש כבר \"סילבוס\" עם קישור אחר. כדאי לבדוק איזה מהשניים עדכני", "r": 1}, {"n": 3, "g": "תוכן ושיעורים", "t": "סילבוס שנה ב (PDF)", "u": "https://drive.google.com/file/d/1mAZKANDFNsNCJ6yllRh7_dI2QG4Ym7Xn", "w": "סילבוס שנה ב' בקובץ PDF", "a": "n", "note": "השם מרמז על אפריל 2025, ייתכן שהוא ישן", "r": 0}, {"n": 4, "g": "תוכן ושיעורים", "t": "בנק שאלות - שנים א-ב", "u": "https://docs.google.com/document/d/1ti7bJ0LjMUab594UKN39lTuLBWHJo-vyqVyXd73qnUs", "w": "שאלות לפי מפגש לבניית בחנים, כולל שאלות אתגר ושאלות ממבחני מפמ\"ר", "a": "m", "note": "", "r": 1}, {"n": 5, "g": "תוכן ושיעורים", "t": "בנק שאלות עם פתרונות", "u": "https://docs.google.com/document/d/1CogE8g44Dr1bSopi4U_CMcmJBLn9hs2u70koHwioBpY", "w": "אותו בנק שאלות, עם פתרונות", "a": "b", "note": "לא להעביר לתלמידים", "r": 1}, {"n": 6, "g": "תוכן ושיעורים", "t": "מילון מושגים לתלמידים (PDF)", "u": "https://drive.google.com/file/d/1zHIhS9XZWgLlMni9FHlWc7XjkEy5AF6o", "w": "פקודות פייתון בסיסיות עם הסבר בעברית ודוגמה", "a": "b", "note": "יש עותק זהה בתיקייה \"ספריית ידע\"", "r": 0}, {"n": 7, "g": "תוכן ושיעורים", "t": "פריסת שיעורים שנה א", "u": "https://drive.google.com/file/d/1_bfrhkr7WOg_EwHzUp5b7T_b5lKluJws", "w": "פריסת השיעורים של שנה א' לאורך השנה (Word)", "a": "n", "note": "", "r": 0}, {"n": 8, "g": "תוכן ושיעורים", "t": "פריסת שיעורים שנה ב", "u": "https://drive.google.com/file/d/1GSph46XRA8jfrLddh3CSx6-ghBRnxlSx", "w": "פריסת השיעורים של שנה ב' (Word)", "a": "n", "note": "הקובץ נקרא \"עותק של...\"", "r": 0}, {"n": 9, "g": "תוכן ושיעורים", "t": "תרגילים לתלמידים מתקדמים", "u": "https://drive.google.com/drive/folders/1Uuy98YX2n0plkbpQZv1O81dnqtsr_M_o", "w": "תרגילים ופרויקטים לתלמידים מתקדמים מאוד (יחידה 2)", "a": "m", "note": "חומר משנה שעברה, בתיקיית ארכיון", "r": 0}, {"n": 10, "g": "תוכן ושיעורים", "t": "רפלקציה תלמידים - עץ הערכה", "u": "https://docs.google.com/document/d/1VlqQzO8MtwQC7_ofwXrJXs7sASajsPyFI83xhIzZ6nI", "w": "הנחיה למש\"קית איך פותחים את שאלון הרפלקציה לתלמידים, עם קישור לטופס", "a": "m", "note": "משנה שעברה", "r": 0}, {"n": 11, "g": "תוכן ושיעורים", "t": "הנחיות לזום", "u": "https://docs.google.com/document/d/1h0sozbGbH1BIHkY3MIyvdh80lCiTWydC0AByHR1pOD8", "w": "מבנה שיעור בזום (45 דקות), עם מצגות מותאמות ליחידות 3 ו-5 בתיקייה נפרדת", "a": "m", "note": "רלוונטי רק אם חוזרים ללמידה מרחוק", "r": 0}, {"n": 12, "g": "תוכן ושיעורים", "t": "טמפלייט לשכפול - תרגול מש\"קיות", "u": "https://colab.research.google.com/drive/1Ge1I1-49D8K1h-cdDAOws68lMqfPqgmC", "w": "מחברת קולאב ריקה לתרגול", "a": "m", "note": "קובץ קטן מאוד, לא בטוח שיש בו תוכן", "r": 0}, {"n": 13, "g": "אקזיט טיקט", "t": "מצגות הכנה לאקזיט טיקט 1-6", "u": "https://drive.google.com/drive/folders/1wtP_EugnULO4e5lYCDNfa6_FhDcx84Ok", "w": "6 מצגות חזרה: 2.6 משתנים, 3.6 תנאים, 5.6 לולאות, 8.4 מחרוזות, 9.4 רשימות, 10.3 פונקציות", "a": "b", "note": "עודכנו ב-22/10. הפורטל מקשר כרגע לתיקייה אחרת", "r": 1}, {"n": 14, "g": "אקזיט טיקט", "t": "מחוון אקזיט טיקט (גיליון)", "u": "https://docs.google.com/spreadsheets/d/19NNzH6T5Ph-qMCpU9HetTnU9uYQ4CwFxIoqpdMcR0ew", "w": "כל השאלות עם התשובה הנכונה והניקוד, שנה א' וב'", "a": "n", "note": "בפורטל יש מחוון במסמך. זה אותו תוכן בגיליון", "r": 0}, {"n": 15, "g": "אקזיט טיקט", "t": "מעקב קצב התקדמות קבוצות", "u": "https://docs.google.com/spreadsheets/d/1VpjPyyX8asWzfV5cgAQlMsL6o2uVwNHFVPm2qHIrRWc", "w": "41 קבוצות. המנה\"ד ממלא פעם בשבוע יחידה וממוצע אקזיט, והגיליון מחשב לבד אם הקבוצה בקצב או בפיגור", "a": "n", "note": "מתאים כשגרה שבועית בפורטל", "r": 1}, {"n": 16, "g": "זה\"ת והכשרות", "t": "זה\"ת תשפ\"ז - שנה א", "u": "https://drive.google.com/drive/folders/1WejqIZai2AvEYD1wxDpO3HAB0YIcRWOO", "w": "תיקייה לכל יחידה (1 עד 6), ובכל אחת מערך ומצגת לכל זה\"ת", "a": "b", "note": "עדיף לקשר תיקייה אחת מאשר כ-40 קבצים", "r": 1}, {"n": 17, "g": "זה\"ת והכשרות", "t": "זה\"ת תשפ\"ז - שנה ב", "u": "https://drive.google.com/drive/folders/1_yqQHMRU_s7RdXCHPXkRKkk-Oqzn6i5R", "w": "יחידות 7 ו-8", "a": "b", "note": "", "r": 0}, {"n": 18, "g": "זה\"ת והכשרות", "t": "סימולטור תקלות של תלמידים", "u": "https://docs.google.com/document/d/1N0DxsAi40gZxEORc7yxIYNKIzy67DzLzbwWJWv_-iJ8", "w": "סימולטור אינטראקטיבי עם 3 תקלות נפוצות של תלמידים בלולאות while", "a": "b", "note": "", "r": 0}, {"n": 19, "g": "זה\"ת והכשרות", "t": "כרטיס כניסה לפרויקט פיצרייה א - דגשים למש\"קית", "u": "https://drive.google.com/file/d/1M5n0KdX4Oj4vZIt1CO66nmFZ2aVN-9aE", "w": "דגשים למש\"קית לפני הפרויקט, ואיך יוצרים עותק (PDF)", "a": "m", "note": "", "r": 0}, {"n": 20, "g": "זה\"ת והכשרות", "t": "9 כרטיסיות רמז", "u": "https://drive.google.com/file/d/1BiFfSISjnJp5tKogzJpQeHFaideNR567", "w": "כרטיסיות רמזים למפגשים 1.1 ו-1.2 (PDF)", "a": "m", "note": "", "r": 0}, {"n": 21, "g": "זה\"ת והכשרות", "t": "גאנט הכשרות תשפ\"ו-תשפ\"ז", "u": "https://drive.google.com/file/d/11g8gFBYRuRgC67K7CzAO5ViLdQXNdnGV", "w": "לוח זמנים של ההכשרות", "a": "n", "note": "קיצור דרך לקובץ שנמצא במקום אחר", "r": 0}, {"n": 22, "g": "זה\"ת והכשרות", "t": "הכשרת מנה\"דים - תובנות ולקחים", "u": "https://docs.google.com/presentation/d/1C8uMok7vFa1iF-AVUV2N8uIKp3WsEDEJBcn_qQoweHQ", "w": "מצגת סיכום של הכשרת המנה\"דים", "a": "n", "note": "", "r": 0}, {"n": 23, "g": "זה\"ת והכשרות", "t": "מצגות זה\"ת תשפ\"ו", "u": "https://drive.google.com/drive/folders/1f8SZwbeBAmbyEQx_ICBKO8WurNfLSTBc", "w": "כל מצגות הזה\"ת של שנה שעברה", "a": "n", "note": "מתאים לארכיון", "r": 0}, {"n": 24, "g": "נהלים ותפקיד", "t": "מדריך קלאסרום", "u": "https://docs.google.com/document/d/1U7_Vc38p5dg70lZYJoA8i3kjeWEToquaX1jfK7jp9zo", "w": "מדריך מלא למש\"קית: מייל של משרד החינוך, כניסה דרך פורטל עובדי הוראה, פתיחת כיתה, תלמידים ומטלות", "a": "m", "note": "מחליף 3 מדריכים ישנים מ-2025", "r": 1}, {"n": 25, "g": "נהלים ותפקיד", "t": "דגשים לבדיקות מחשוב - שבוע אוריינטציה", "u": "https://drive.google.com/file/d/1byetq-1iJh8WetgX7LpIL95rVqZTg4nT", "w": "רשימת בדיקות בבית הספר: כיתות מחשב, אינטרנט, מקרן, מייל, קלאסרום, קולאב (PDF)", "a": "b", "note": "", "r": 1}, {"n": 26, "g": "נהלים ותפקיד", "t": "היערכות לתשפ\"ז - מכתב לבתי הספר", "u": "https://docs.google.com/document/d/1e7NVenYLjrrlYqqjHrS7vmbHxxv2SjlmKycn_kDNIbA", "w": "מכתב לבית הספר על הזדהות התלמידים במערכת הלמידה ועל גישה לגוגל", "a": "n", "note": "שונה מ\"היערכות לתחילת למידה\" שכבר בפורטל", "r": 0}, {"n": 27, "g": "נהלים ותפקיד", "t": "מוכנות לתשתית טכנולוגית", "u": "https://drive.google.com/file/d/1lT21mc7Yr3m_C6QslEIr3BX_ASWmJsl7", "w": "מפרט הציוד שנדרש מבית הספר לכל קבוצה (PDF)", "a": "n", "note": "", "r": 0}, {"n": 28, "g": "נהלים ותפקיד", "t": "פתיחת שנה גשרים מדמ\"ח - ביה\"ס", "u": "https://docs.google.com/document/d/1ADwcSqL9hmmS_DBgBKIn707vQ4Spgxx4H5tf_VPcQcs", "w": "מסמך פתיחת שנה מול בית הספר", "a": "n", "note": "לא הצלחתי לקרוא את התוכן, כדאי שתציץ", "r": 0}, {"n": 29, "g": "נהלים ותפקיד", "t": "פעילות מדמ\"ח למנה\"ד חדש", "u": "https://docs.google.com/presentation/d/1K94sIYoinBq095GFq1hxQx2XqcssF3cwdayLtPCsBXc", "w": "מצגת קליטה (19 שקפים): למה התוכנית קיימת, איך היא פועלת, ומה תפקיד המנה\"ד", "a": "n", "note": "", "r": 1}, {"n": 30, "g": "נהלים ותפקיד", "t": "היכרות עם מנהל הדרכה ארצי", "u": "https://docs.google.com/presentation/d/1zgFLiItdGC2nHPu9HO9BngIHEWlnPm2HI8x4POK7r9E", "w": "מצגת היכרות", "a": "n", "note": "", "r": 0}, {"n": 31, "g": "נהלים ותפקיד", "t": "הגדרת תפקיד המדריך המלמד", "u": "https://docs.google.com/document/d/1KMnfsLLw9VcRixtwaeBtv19pp15z_jca5C5cmZnT2cU", "w": "תחומי האחריות של המדריך מול המש\"קית, בטבלה", "a": "n", "note": "", "r": 0}, {"n": 32, "g": "נהלים ותפקיד", "t": "מודל מנה\"ד מלמד", "u": "https://docs.google.com/document/d/1rEQVHXIOcYnlrW6VZ_xfJVifNyL7jV10XBNU39CMASY", "w": "השוואה בין מנה\"ד מלמד, מנה\"ד רגיל ומדריך: שעות, שגרות ועלויות", "a": "n", "note": "נראה כמו מסמך תכנון פנימי", "r": 0}, {"n": 33, "g": "נהלים ותפקיד", "t": "טבלת ריכוז נתונים", "u": "https://docs.google.com/spreadsheets/d/1zXkzOvm-PhVRCP9--kC_Fhz3vPrVoCS5UMO_wPSCOZ4", "w": "נתונים לכל רשות, בית ספר וכיתה: תלמידים, אחוז ממשיכים, בנות, יחידה וממוצע אקזיט", "a": "n", "note": "", "r": 0}, {"n": 34, "g": "נהלים ותפקיד", "t": "גשרים פלוס - ניהול תוכן", "u": "https://docs.google.com/document/d/1DUE9VgL2Ib3E8hFoKH3AyLZPIkv_k9HRRt0YySw24Do", "w": "שני תרחישים: עבודה עם קלאסרום, ועבודה עם הדרייב כשהקלאסרום חסום", "a": "m", "note": "משנה שעברה, חלקו הוחלף במדריך הקלאסרום (24)", "r": 0}, {"n": 35, "g": "נהלים ותפקיד", "t": "רשויות עם התאמות תשפ\"ז", "u": "https://docs.google.com/document/d/1dsmcn7oA3q4567lIpz-E8SLGC7djVPN1g3uIBEyLAUk", "w": "מצב בכל בית ספר: נוכחות, בעיות ומשימות פתוחות", "a": "n", "note": "מסמך עבודה פנימי", "r": 0}, {"n": 36, "g": "נהלים ותפקיד", "t": "מצגת פגישת מנה\"דים 9/9", "u": "https://docs.google.com/presentation/d/1pIgNV3u6Isl6-V0wH_RXrJCVtpQOb-kyw0nj2DDKw9w", "w": "מצגת מפגש המנה\"דים", "a": "n", "note": "", "r": 0}, {"n": 37, "g": "שיווק והורים", "t": "קיט שיווק", "u": "https://drive.google.com/drive/folders/1mH3d7tyuUhwex3yWa-OBL_3MsSB6vyL8", "w": "מכתב להורים לכיתה ז', עלון (PDF ותמונה), לוגו ברקע שקוף ולבן, ושקופית", "a": "b", "note": "עדיף לקשר את התיקייה כולה", "r": 1}, {"n": 38, "g": "שיווק והורים", "t": "מכתב להורים כיתה ח'", "u": "https://docs.google.com/document/d/1AByofhWgVGYBgf0XETjKRt0Pb0w3bNHPDiSMqVREuyU", "w": "מכתב פתיחת שנה להורים", "a": "b", "note": "", "r": 0}, {"n": 39, "g": "שיווק והורים", "t": "מכתב להורים כיתה ט'", "u": "https://docs.google.com/document/d/1fJhiNil7xbEyh5acoLqzHX-WDd0XffudqCxWn0I6X0k", "w": "מכתב פתיחת שנה להורים", "a": "b", "note": "", "r": 0}, {"n": 40, "g": "שיווק והורים", "t": "מכתב קבלה לתוכנית", "u": "https://drive.google.com/file/d/1R3pVdSwdZcWIFbqihJ3FS2w9r7mTHDrC", "w": "מכתב להורים על קבלה לתוכנית בתשפ\"ז", "a": "b", "note": "קיצור דרך", "r": 0}, {"n": 41, "g": "שיווק והורים", "t": "גשרים מדמ\"ח - יום הורים", "u": "https://docs.google.com/presentation/d/1ke30KY2DwUIUIIIQTSxCqf9g9_wuqzRHB3Mv7P1LPp8", "w": "מצגת לערב הורים", "a": "b", "note": "יש גם גרסה 2 כקיצור דרך. כדאי לבחור אחת", "r": 0}, {"n": 42, "g": "שיווק והורים", "t": "חשיפה לכיתות ז'", "u": "https://docs.google.com/presentation/d/1gvFVilyb8hUxvm91RDjakh1J9N8PAwkQMXvoXPVmjjE", "w": "מצגת חשיפה לתוכנית בכיתה ז'", "a": "b", "note": "", "r": 0}, {"n": 43, "g": "איתור ומיון", "t": "ערכת שיח וחשיפה למש\"קית", "u": "https://drive.google.com/file/d/1MY1YGj7FEh4YuEdwZSS5U00URgkfLlQW", "w": "איך מש\"קית מנהלת שיחה אישית עם תלמיד בכיתה ז': הכנה, מסרים והתמודדות עם התנגדויות", "a": "m", "note": "עודכן היום", "r": 1}, {"n": 44, "g": "איתור ומיון", "t": "מנגנון איתור ומיון", "u": "https://drive.google.com/file/d/1OMr3SLUcpFLrBIUjptIjek17PAgbZM2w", "w": "מסמך העבודה של התהליך: קריטריונים, נקודות עצירה ותיעוד", "a": "n", "note": "", "r": 0}, {"n": 45, "g": "איתור ומיון", "t": "איתור ומיון - מצגת מיטאפ מש\"קיות", "u": "https://docs.google.com/presentation/d/1zMZoFmAd-sqBYWz9FXDSmqLnEtomz5QU3HK0iMOeI8E", "w": "המצגת מהמיטאפ", "a": "b", "note": "", "r": 0}, {"n": 46, "g": "איתור ומיון", "t": "שאלון מוטיבציה לתלמידים", "u": "https://docs.google.com/forms/d/1SxsLbPLT8AP2NddsX-F_rtgZa9MKIV6IsN7G9vtsfBQ", "w": "הטופס עצמו, שהמש\"קית מעבירה לתלמידים", "a": "m", "note": "", "r": 0}, {"n": 47, "g": "איתור ומיון", "t": "מנגנון ניהול איתור ומיון (אקסל)", "u": "https://drive.google.com/file/d/1WjHY-RYjMHZT-JWnsPro7N0DUVF8YiDx", "w": "קובץ ניהול התהליך", "a": "n", "note": "קובץ אקסל עם מאקרו, לא יעבוד בטלפון", "r": 0}, {"n": 48, "g": "טפסים ושאלונים", "t": "שאלון פתיחה כיתה ט'", "u": "https://docs.google.com/forms/d/1vLuNJiVoIJEduq_QgvWf116y-e5CskLLMZHLM2AH7DQ", "w": "שאלון פתיחת שנה לתלמידי ט'", "a": "m", "note": "יש גם מצגת שמסבירה אותו", "r": 1}, {"n": 49, "g": "טפסים ושאלונים", "t": "שאלון לתלמיד כיתה ח'", "u": "https://docs.google.com/forms/d/1guIpIgLKMome5VZ3Rxkk7D4iGBNVr5BAlT7LwK_AWHU", "w": "שאלון לתלמידי ח'", "a": "m", "note": "מהבוטקאמפ, לבדוק אם עדיין בשימוש", "r": 0}, {"n": 50, "g": "טפסים ושאלונים", "t": "שאלון לתלמיד כיתה ז'", "u": "https://docs.google.com/forms/d/1aHhWuReGtVTOXw4RVe5NHjKip4U0G2taVH5aJViReQ8", "w": "שאלון לתלמידי ז'", "a": "m", "note": "מהבוטקאמפ, לבדוק אם עדיין בשימוש", "r": 0}, {"n": 51, "g": "טפסים ושאלונים", "t": "מתווה קבוצת מיקוד מש\"קיות", "u": "https://drive.google.com/file/d/1PDfeux1GMXs1Nw6m9zW8u9CIbvVFyJZ8", "w": "מבנה למפגש קבוצת מיקוד עם מש\"קיות", "a": "n", "note": "", "r": 0}, {"n": 52, "g": "טפסים ושאלונים", "t": "מתווה קבוצת מיקוד תלמידים", "u": "https://drive.google.com/file/d/175jZBRHDVwmuXUUbSOnMYVjMHTWVV1ei", "w": "מבנה למפגש קבוצת מיקוד עם תלמידים", "a": "n", "note": "", "r": 0}, {"n": 53, "g": "טפסים ושאלונים", "t": "סיכום תשפ\"ו - הערכה ומדידה", "u": "https://docs.google.com/presentation/d/18f9YgGBtpd3qsN3vysr3GN-9-KbAgRX1RyIo5BoRogA", "w": "מצגת סיכום השנה שעברה", "a": "n", "note": "", "r": 0}, {"n": 54, "g": "טפסים ושאלונים", "t": "שגרות ניהול הערכה (אקסל)", "u": "https://drive.google.com/file/d/14zex0-5hFQ2Uv5Qd-GNqXwLe0gXT5ljR", "w": "בניית שגרות להערכה", "a": "n", "note": "", "r": 0}, {"n": 55, "g": "טפסים ושאלונים", "t": "גאנט מדידה והערכה (אקסל)", "u": "https://drive.google.com/file/d/18-MwW1X9QSdCPD4UX9_90k49DHv71RCu", "w": "לוח זמנים להערכה", "a": "n", "note": "קובץ עם מאקרו", "r": 0}, {"n": 56, "g": "סדנאות", "t": "סדנת קבלת החלטות", "u": "https://drive.google.com/file/d/1DCK_i7Hd6EsFD9W3Ibjb7qvXmC-fmYEt", "w": "מצגת ומערך לסדנה מוכנה להעברה בכיתה", "a": "m", "note": "המערך בקובץ Word נפרד", "r": 0}, {"n": 57, "g": "סדנאות", "t": "רעיונות לסדנאות נוספות", "u": "https://docs.google.com/document/d/1f3R-82XzCgkzEFe8aHQO8VTETnACzduyP9pcf8CzSyk", "w": "7 רעיונות לסדנאות לכיתה ח' וסדנאות לכיתה ט' (מסוגלות, התמדה, בחירת מגמה)", "a": "n", "note": "", "r": 0}, {"n": 58, "g": "סדנאות", "t": "הוראה בעידן הבינה המלאכותית", "u": "https://drive.google.com/file/d/11RtgiXh-gbQh1HlgNkqNTeqdQqRoXmxU", "w": "מצגת לכנס דה מרקר", "a": "n", "note": "כנראה לא לפורטל", "r": 0}, {"n": 59, "g": "ניהול התוכנית", "t": "משימות", "u": "https://docs.google.com/spreadsheets/d/1QLm2i0Q3bOcX9mKzTbSEfCINyoTZ16ck-e02vh1dl2k", "w": "רשימת המשימות שלך ושל תומר", "a": "n", "note": "לדעתי לא לפורטל", "r": 0}, {"n": 60, "g": "ניהול התוכנית", "t": "סטטוס מדמ\"ח", "u": "https://docs.google.com/presentation/d/1M2tuEqMHjBw6JBKDaY5p2F3kgzRHEBL5sNMnmtWQfyo", "w": "מצגות סטטוס להנהלה", "a": "n", "note": "לדעתי לא לפורטל", "r": 0}, {"n": 61, "g": "ניהול התוכנית", "t": "תמונת עתיד", "u": "https://drive.google.com/drive/folders/1G8rxVCbu6OpYbRWv12zeHHPBcYb0rI_M", "w": "גאנטים, מודל הפעלה לכיתה ט' והצעת חיבור לאמן", "a": "n", "note": "לדעתי לא לפורטל", "r": 0}, {"n": 62, "g": "ניהול התוכנית", "t": "מערכת דיגיטלית ודשבורד", "u": "https://drive.google.com/drive/folders/1UTSXsokZ89igahAH-7gf10xZFBxnew5j", "w": "אפיון הדשבורד", "a": "n", "note": "לדעתי לא לפורטל", "r": 0}, {"n": 63, "g": "ניהול התוכנית", "t": "תובנות בוטקאמפ", "u": "https://docs.google.com/presentation/d/1kXrb-6VPHbGRFeO_ZDZS6y1XprARqqUOYu-PBCEZVxE", "w": "סיכום הבוטקאמפ", "a": "n", "note": "לדעתי לא לפורטל", "r": 0}];
+var CATS=['תוכן ושיעורים','אקזיט טיקט','זה"ת והכשרות','תצפיות ומשוב','נהלים ותפקיד','טפסים ושאלונים','כללי'];
+var NEW_CATS=['שיווק והורים','איתור ומיון','סדנאות','ניהול התוכנית'];
+var AUD={m:'מש"קיות',n:'מנה"דים',b:'שניהם'};
+var KEY='gesharim_picker_v2',ST={},FILTER='all';
+try{ST=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){ST={}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){}}
+function st(n){return ST[n]||(ST[n]={})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function aud(it){return st(it.n).a||it.a}
+function cat(it){return st(it.n).c||it.g}
+function catOptions(sel){
+  var all=CATS.concat(NEW_CATS);if(all.indexOf(sel)<0)all.push(sel);
+  return all.map(function(c){return '<option value="'+esc(c)+'"'+(c===sel?' selected':'')+'>'+esc(c)+(CATS.indexOf(c)<0?' (חדשה)':'')+'</option>'}).join('');
+}
+function card(it){
+  var s=st(it.n).s||'',n=it.n;
+  return '<article class="item" data-n="'+n+'" data-s="'+s+'" id="i'+n+'">'+
+    '<div class="head"><span class="num">'+n+'</span><div class="t"><a href="'+esc(it.u)+'" target="_blank" rel="noopener">'+esc(it.t)+'<span class="ext">↗</span></a></div>'+(it.r?'<span class="star">⭐ מומלץ</span>':'')+'</div>'+
+    '<p class="what">'+esc(it.w)+'</p>'+(it.note?'<p class="note">'+esc(it.note)+'</p>':'')+
+    '<div class="ctrl"><label class="pick" for="k'+n+'"><input type="checkbox" id="k'+n+'" data-k="pick"'+(s==='y'?' checked':'')+'>'+(s==='y'?'נכנס לפורטל':'להכניס לפורטל')+'</label>'+
+    '<label class="sel" for="a'+n+'">קהל <select id="a'+n+'" data-k="a">'+['m','n','b'].map(function(v){return '<option value="'+v+'"'+(aud(it)===v?' selected':'')+'>'+AUD[v]+'</option>'}).join('')+'</select></label>'+
+    '<label class="sel" for="c'+n+'">קטגוריה <select id="c'+n+'" data-k="c">'+catOptions(cat(it))+'</select></label>'+
+    '</div></article>';
+}
+function render(){
+  var groups=[],by={};
+  ITEMS.forEach(function(it){if(!by[it.g]){by[it.g]=[];groups.push(it.g)}by[it.g].push(it)});
+  var h='';
+  groups.forEach(function(g){
+    var list=by[g].filter(function(it){var s=st(it.n).s||'';
+      return FILTER==='all'||(FILTER==='u'&&s!=='y')||(FILTER==='star'&&it.r)||(FILTER==='y'&&s==='y')});
+    if(!list.length)return;
+    var all=by[g].every(function(it){return st(it.n).s==='y'});
+    h+='<section class="group"><h2>'+esc(g)+' <small>'+list.length+'</small><label class="gpick pick"><input type="checkbox" data-g="'+esc(g)+'"'+(all?' checked':'')+'>סמן את כל הקבוצה</label></h2><div class="list">'+list.map(card).join('')+'</div></section>';
+  });
+  document.getElementById('groups').innerHTML=h||'<p class="empty">אין מסמכים בסינון הזה.</p>';
+  summary();
+}
+function summary(){
+  var c={y:[],u:[]};
+  ITEMS.forEach(function(it){c[st(it.n).s==='y'?'y':'u'].push(it)});
+  var T=ITEMS.length;
+  document.getElementById('py').style.width=(c.y.length/T*100)+'%';
+  document.getElementById('counts').innerHTML='<span><i class="dot" style="background:var(--yes)"></i>מסומנים <b>'+c.y.length+'</b> מתוך '+T+'</span>';
+  var nums=function(a){return a.length?a.map(function(it){return it.n}).join(', '):'אין'};
+  var ch=[];
+  ITEMS.forEach(function(it){var s=st(it.n),p=[];
+    if(s.a&&s.a!==it.a)p.push('קהל: '+AUD[s.a]);
+    if(s.c&&s.c!==it.g)p.push('קטגוריה: '+s.c);
+    if(p.length&&s.s==='y')ch.push(it.n+' ('+it.t+') → '+p.join(', '))});
+  document.getElementById('outMsg').value='המסמכים שבחרתי להכניס לפורטל ('+c.y.length+'): '+nums(c.y)+'\n'+
+    (ch.length?'שינויים:\n'+ch.join('\n'):'');
+  document.getElementById('outTsv').value=c.y.map(function(it){
+    var a=aud(it);
+    return [it.t,it.u,cat(it),a!=='n'?'TRUE':'FALSE',a!=='m'?'TRUE':'FALSE',it.w].map(function(x){return String(x).replace(/[\t\n]/g,' ')}).join('\t');
+  }).join('\n');
+}
+document.getElementById('groups').addEventListener('change',function(e){
+  var el=e.target;
+  if(el.dataset.g!=null){var on=el.checked;ITEMS.forEach(function(it){if(it.g===el.dataset.g)st(it.n).s=on?'y':''});save();render();return}
+  var art=el.closest('.item');if(!art)return;var n=+art.dataset.n;
+  if(el.dataset.k==='pick'){var v=el.checked?'y':'';st(n).s=v;art.dataset.s=v;
+    el.parentNode.lastChild.textContent=v?'נכנס לפורטל':'להכניס לפורטל';save();
+    if(FILTER==='y'||FILTER==='u'){render();return}
+    var g=art.closest('.group').querySelector('[data-g]'),gi=ITEMS.filter(function(it){return it.g===g.dataset.g});
+    g.checked=gi.every(function(it){return st(it.n).s==='y'});summary();return}
+  if(el.dataset.k){st(n)[el.dataset.k]=el.value;save();summary()}
+});
+document.querySelectorAll('.chip').forEach(function(b){b.onclick=function(){
+  FILTER=b.dataset.f;document.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});render()}});
+document.getElementById('stars').onclick=function(){ITEMS.forEach(function(it){if(it.r)st(it.n).s='y'});save();render()};
+document.querySelectorAll('[data-copy]').forEach(function(b){b.onclick=function(){
+  var ta=document.getElementById(b.dataset.copy),ok=document.getElementById(b.dataset.copy==='outMsg'?'okMsg':'okTsv');
+  function done(){ok.hidden=false;setTimeout(function(){ok.hidden=true},1800)}
+  function fallback(){ta.focus();ta.select();try{if(document.execCommand('copy'))done()}catch(e){}}
+  try{navigator.clipboard.writeText(ta.value).then(done,fallback)}catch(e){fallback()}
+}});
+document.getElementById('reset').onclick=function(){document.getElementById('resetAsk').hidden=false};
+document.getElementById('resetNo').onclick=function(){document.getElementById('resetAsk').hidden=true};
+document.getElementById('resetYes').onclick=function(){ST={};save();document.getElementById('resetAsk').hidden=true;render()};
+render();
+</script>
+</body></html>
