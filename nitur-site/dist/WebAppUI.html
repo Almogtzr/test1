@@ -1,0 +1,2685 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ניטור תצפיות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   ניטור תצפיות — גיליון הסגנון
+   עיקרון: כחול כותב, אדום מסמן. כחול = פעולה והזנה. אדום = דורש תשומת לב.
+   ========================================================================== */
+:root{
+  color-scheme: light;
+  --ink:#17252F; --ink-2:#465763; --ink-3:#6B7985;
+  --paper:#F1F4F3; --sheet:#FFFFFF; --rule:#D9E0DE; --rule-2:#ECF0EF; --wash:#F6F8F7;
+  --blue:#1C5CAB; --blue-mark:#2A78D6; --blue-wash:#E9F1FC; --blue-line:#BCD4F3;
+  --red:#D03B3B; --red-wash:#FBEAEA; --orange:#EC835A; --orange-wash:#FDF0EA;
+  --yellow:#FAB219; --yellow-wash:#FEF5DC; --green:#0CA30C; --green-wash:#E6F6E6;
+  --lime:#8CCB5E;
+  --margin:#E7A7A7;
+  --rail:#17252F; --rail-ink:#C9D5DC;
+  --sans:'IBM Plex Sans Hebrew','Segoe UI',Arial,sans-serif;
+  --serif:'Frank Ruhl Libre','David Libre',David,'Times New Roman',serif;
+  --r:6px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:var(--sans);font-size:15px;line-height:1.5;color:var(--ink);background:var(--paper);
+  -webkit-font-smoothing:antialiased;text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,p{margin:0}
+:focus-visible{outline:2px solid var(--blue-mark);outline-offset:2px;border-radius:3px}
+.num{font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+
+/* ---------- שלד ---------- */
+.app{min-height:100%;display:flex;flex-direction:column}
+.rail{display:none}
+.topbar{position:sticky;top:0;z-index:30;background:var(--sheet);border-bottom:1px solid var(--rule);
+  display:flex;align-items:center;gap:10px;padding:10px 16px;min-height:54px}
+.topbar .brand{font-family:var(--serif);font-weight:700;font-size:19px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .me{font-size:12px;color:var(--ink-2);text-align:end;line-height:1.25;max-width:46%}
+.topbar .me b{display:block;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main{flex:1;padding:16px 16px 96px;width:100%;max-width:1200px;margin:0 auto}
+.busy{position:fixed;top:0;inset-inline:0;height:3px;z-index:90;background:transparent;overflow:hidden;pointer-events:none}
+.busy.on::after{content:'';position:absolute;inset-block:0;width:40%;background:var(--blue-mark);animation:busy 1.1s linear infinite}
+@keyframes busy{from{inset-inline-start:-40%}to{inset-inline-start:100%}}
+
+.tabbar{position:fixed;bottom:0;inset-inline:0;z-index:40;background:var(--sheet);border-top:1px solid var(--rule);
+  display:flex;align-items:stretch;padding-bottom:env(safe-area-inset-bottom)}
+.tabbar button{flex:1;border:0;background:none;padding:8px 2px 9px;font-size:11px;font-weight:500;color:var(--ink-3);
+  display:flex;flex-direction:column;align-items:center;gap:3px;min-height:56px;position:relative}
+.tabbar button svg{width:22px;height:22px}
+.tabbar button.on{color:var(--blue)}
+.tabbar button.on::before{content:'';position:absolute;top:-1px;inset-inline:22%;height:2px;background:var(--blue)}
+.tabbar .plus{flex:0 0 auto;width:64px}
+.tabbar .plus span.c{width:46px;height:46px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;margin-top:-18px;border:3px solid var(--sheet)}
+.tabbar .plus span.c svg{width:24px;height:24px}
+.tabbar .dot{position:absolute;top:5px;left:calc(50% + 7px);min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-size:10px;font-weight:700;line-height:16px;padding:0 4px}
+
+@media(min-width:960px){
+  .app{flex-direction:row}
+  .tabbar,.topbar{display:none}
+  .rail{display:flex;flex-direction:column;position:sticky;top:0;height:100vh;width:212px;flex:0 0 212px;
+    background:var(--rail);color:var(--rail-ink);padding:22px 0 14px}
+  .rail .brand{font-family:var(--serif);font-weight:700;font-size:22px;color:#fff;padding:0 22px 2px;line-height:1.2}
+  .rail .sub{font-size:12px;padding:0 22px 20px;color:#8FA2AE}
+  .rail nav{flex:1;display:flex;flex-direction:column;gap:1px}
+  .rail nav button{border:0;background:none;color:inherit;text-align:start;padding:9px 22px;font-size:15px;font-weight:500;
+    display:flex;align-items:center;gap:11px;position:relative}
+  .rail nav button svg{width:19px;height:19px;flex:0 0 19px;opacity:.85}
+  .rail nav button:hover{background:rgba(255,255,255,.06);color:#fff}
+  .rail nav button.on{color:#fff;background:rgba(255,255,255,.09)}
+  .rail nav button.on::before{content:'';position:absolute;inset-block:6px;inset-inline-start:0;width:3px;background:#6FA8F0}
+  .rail nav .gap{height:14px}
+  .rail nav .new{margin:4px 16px 12px;padding:10px 12px;border-radius:var(--r);background:var(--blue-mark);color:#fff;justify-content:center;font-weight:600}
+  .rail nav .new:hover{background:#3987E5}
+  .rail nav .n{margin-inline-start:auto;background:var(--red);color:#fff;border-radius:9px;font-size:11px;font-weight:700;padding:0 6px;line-height:18px}
+  .rail .me{padding:12px 22px 0;border-top:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.35}
+  .rail .me b{display:block;color:#fff;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+  .rail .me button{border:0;background:none;color:#8FB8EE;padding:6px 0 0;font-size:12px}
+  .main{padding:28px 32px 48px;margin:0;max-width:1240px}
+}
+
+/* ---------- כותרת עמוד ---------- */
+.ph{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ph h1{font-family:var(--serif);font-weight:700;font-size:26px;line-height:1.15;letter-spacing:-.2px}
+.ph .ph-t{flex:1 1 260px;min-width:0}
+.ph .lead{color:var(--ink-2);font-size:14px;max-width:70ch;margin-top:4px}
+.ph .sp{flex:1}
+@media(min-width:960px){.ph h1{font-size:32px}}
+.back{border:0;background:none;color:var(--blue);padding:0;font-weight:500;font-size:14px;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px}
+.back svg{width:16px;height:16px}
+
+/* ---------- משטחים ---------- */
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r);margin-bottom:16px}
+.sheet>.hd{display:flex;align-items:baseline;gap:10px;padding:14px 16px 0;flex-wrap:wrap}
+.sheet>.hd h2{font-size:16px;font-weight:600}
+.sheet>.hd .note{color:var(--ink-3);font-size:13px}
+.sheet>.hd .sp{flex:1}
+.sheet>.bd{padding:14px 16px 16px}
+.sheet>.bd.flush{padding:8px 0 4px}
+.cols{display:grid;gap:16px}
+@media(min-width:900px){.cols.c2{grid-template-columns:1fr 1fr}.cols.c21{grid-template-columns:1.6fr 1fr}}
+.cols>.sheet{margin-bottom:0}
+.cols{margin-bottom:16px}
+
+/* רצועת מדדים: שורה אחת מחולקת בקווים, לא כרטיסים */
+.ledger{display:grid;grid-template-columns:repeat(2,1fr);background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r);margin-bottom:16px;overflow:hidden}
+.ledger .cell{padding:13px 16px 12px;border-inline-start:1px solid var(--rule-2);border-top:1px solid var(--rule-2);min-width:0}
+.ledger .cell:nth-child(2n+1){border-inline-start:0}
+.ledger .cell:nth-child(-n+2){border-top:0}
+.ledger .cell:last-child:nth-child(odd){grid-column:1/-1}
+.ledger .k{font-size:12.5px;color:var(--ink-2);font-weight:500}
+.ledger .v{font-size:30px;font-weight:600;line-height:1.15;letter-spacing:-.5px;margin-top:2px}
+.ledger .v small{font-size:15px;font-weight:500;color:var(--ink-3);letter-spacing:0}
+.ledger .f{font-size:12px;color:var(--ink-3);margin-top:1px}
+.ledger .f.bad{color:var(--red);font-weight:600}
+.ledger .f.good{color:#0A7A0A;font-weight:600}
+.ledger button.cell{border-width:0;border-inline-start:1px solid var(--rule-2);border-top:1px solid var(--rule-2);background:none;text-align:start}
+.ledger button.cell:hover{background:var(--wash)}
+@media(min-width:700px){
+  .ledger .cell:last-child:nth-child(odd){grid-column:auto}
+  .ledger{grid-template-columns:repeat(var(--n,4),1fr)}
+  .ledger .cell,.ledger button.cell{border-top:0;border-inline-start:1px solid var(--rule-2)}
+  .ledger .cell:first-child{border-inline-start:0}
+}
+
+/* ---------- כפתורים ושדות ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 16px;border-radius:var(--r);
+  border:1px solid var(--rule);background:var(--sheet);font-weight:600;font-size:14px;white-space:nowrap}
+.btn:hover{background:var(--wash)}
+.btn svg{width:17px;height:17px}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.pri:hover{background:#184F95}
+.btn.danger{color:var(--red);border-color:#EDC4C4}
+.btn.danger:hover{background:var(--red-wash)}
+.btn.sm{min-height:32px;padding:4px 11px;font-size:13px}
+.btn.ghost{border-color:transparent;background:none;color:var(--blue)}
+.btn.ghost:hover{background:var(--blue-wash)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.wide{width:100%}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap}
+
+.fld{margin-bottom:14px;min-width:0}
+.fld>label,.fld>.lb{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.fld .opt{font-weight:400;color:var(--ink-3)}
+.in,select.in,textarea.in{width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--rule);border-radius:var(--r);background:var(--sheet)}
+textarea.in{min-height:84px;resize:vertical;line-height:1.5}
+.in:focus{outline:0;border-color:var(--blue-mark);box-shadow:0 0 0 3px var(--blue-wash)}
+.in.err{border-color:var(--red);box-shadow:0 0 0 3px var(--red-wash)}
+.in::placeholder{color:#9AA6AF}
+button.in{text-align:start;display:flex;align-items:center;gap:8px}
+button.in .ph-t{color:#9AA6AF}
+button.in .v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button.in svg{width:16px;height:16px;color:var(--ink-3);flex:0 0 16px}
+.g2{display:grid;grid-template-columns:1fr;gap:0 14px}
+@media(min-width:640px){.g2{grid-template-columns:1fr 1fr}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 14px}}
+.seg{display:flex;border:1px solid var(--rule);border-radius:var(--r);overflow:hidden;background:var(--sheet)}
+.seg button{flex:1;border:0;border-inline-start:1px solid var(--rule);background:none;min-height:40px;padding:6px 10px;font-weight:500;font-size:14px}
+.seg button:first-child{border-inline-start:0}
+.seg button.on{background:var(--blue);color:#fff;font-weight:600}
+.seg.sm button{min-height:34px;font-size:13px}
+
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.bar .in{width:auto;min-height:38px;padding:6px 10px;font-size:14px}
+.bar .grow{flex:1 1 200px;min-width:160px}
+.bar .cnt{color:var(--ink-3);font-size:13px;margin-inline-start:auto}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--rule);margin-bottom:16px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{border:0;background:none;padding:9px 14px 10px;font-weight:500;color:var(--ink-2);white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px;font-size:14.5px}
+.tabs button.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.tabs button .n{font-size:11px;font-weight:700;background:var(--red);color:#fff;border-radius:8px;padding:0 5px;margin-inline-start:5px;line-height:16px;display:inline-block}
+
+/* ---------- תגיות וציונים ---------- */
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--rule-2);color:var(--ink-2);white-space:nowrap;line-height:1.5}
+.chip::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.chip.red{background:var(--red-wash);color:#8E1F1F}.chip.red::before{background:var(--red)}
+.chip.orange{background:var(--orange-wash);color:#8A3B18}.chip.orange::before{background:var(--orange)}
+.chip.yellow{background:var(--yellow-wash);color:#6B4B00}.chip.yellow::before{background:var(--yellow)}
+.chip.green{background:var(--green-wash);color:#0B5F0B}.chip.green::before{background:var(--green)}
+.chip.blue{background:var(--blue-wash);color:var(--blue)}.chip.blue::before{background:var(--blue-mark)}
+.chip.plain::before{display:none}
+.sc{display:inline-block;min-width:42px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:4px;background:var(--rule-2);color:var(--ink);font-size:14px}
+.sc.low{background:var(--red-wash);color:#8E1F1F;box-shadow:inset 3px 0 0 var(--red)}
+.sc.high{background:var(--green-wash);color:#0B5F0B}
+.sc.none{background:none;color:var(--ink-3);font-weight:400}
+.sc.big{font-size:28px;padding:4px 14px;min-width:76px;border-radius:var(--r)}
+.dots{display:inline-flex;gap:3px;vertical-align:middle}
+.dots i{width:9px;height:9px;border-radius:2px;background:var(--rule)}
+.r1{background:var(--red)!important}.r2{background:var(--orange)!important}.r3{background:var(--yellow)!important}
+.r4{background:var(--lime)!important}.r5{background:var(--green)!important}
+.muted{color:var(--ink-3)}
+.sub{color:var(--ink-2);font-size:13px}
+
+/* ---------- רשימות ---------- */
+.list{display:flex;flex-direction:column}
+.li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:11px 16px;border-top:1px solid var(--rule-2);text-align:start;background:none;border-inline:0;border-bottom:0;width:100%}
+.li:first-child{border-top:0}
+button.li:hover{background:var(--wash)}
+.li .t{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .m{grid-column:1/-1;color:var(--ink-2);font-size:13px;display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center}
+.li .e{display:flex;align-items:center;gap:8px}
+.empty{padding:36px 16px;text-align:center;color:var(--ink-2)}
+.empty b{display:block;font-size:16px;color:var(--ink);margin-bottom:4px;font-weight:600}
+.empty .btn{margin-top:14px}
+.more{display:flex;justify-content:center;padding:12px}
+
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{font-size:12.5px;font-weight:600;color:var(--ink-2);text-align:start;padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--sheet);position:sticky;top:0}
+table.t th.s{cursor:pointer;user-select:none}
+table.t th.s:hover{color:var(--ink)}
+table.t th .ar{font-size:10px;margin-inline-start:3px;color:var(--blue)}
+table.t td{padding:9px 10px;border-bottom:1px solid var(--rule-2);vertical-align:middle;white-space:nowrap}
+table.t tr:last-child td{border-bottom:0}
+table.t td.n,table.t th.n{text-align:center;font-variant-numeric:tabular-nums}
+table.t td.w{white-space:normal;min-width:240px;color:var(--ink-2);font-size:13px;line-height:1.45}
+table.t tbody tr.tap{cursor:pointer}
+table.t tbody tr.tap:hover{background:var(--wash)}
+table.t td:first-child,table.t th:first-child{padding-inline-start:16px}
+table.t td:last-child,table.t th:last-child{padding-inline-end:16px}
+table.t td b{font-weight:600}
+table.t tfoot td{border-top:1px solid var(--rule);font-weight:600;background:var(--wash)}
+td .cr{display:inline-block;min-width:34px;padding:1px 5px;border-radius:3px;text-align:center}
+.wk{display:inline-flex;gap:2px;direction:ltr}
+.wk i{font-style:normal;width:17px;height:20px;border-radius:2px;font-size:10.5px;line-height:20px;text-align:center;background:var(--rule-2);color:var(--ink-3);font-variant-numeric:tabular-nums}
+.wk i.p{background:var(--yellow-wash);color:#6B4B00;font-weight:600}
+.wk i.f{background:var(--green-wash);color:#0B5F0B;font-weight:700}
+
+/* ---------- פירוט ---------- */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:14px}
+.kv dt{color:var(--ink-2)}
+.kv dd{margin:0;font-weight:500;min-width:0;overflow-wrap:anywhere}
+@media(min-width:700px){.kv.two{grid-template-columns:auto 1fr auto 1fr}}
+.name{font-family:var(--serif);font-weight:700;font-size:28px;line-height:1.15}
+.crit-row{padding:12px 0;border-top:1px solid var(--rule-2)}
+.crit-row:first-child{border-top:0;padding-top:2px}
+.crit-row .top{display:flex;align-items:center;gap:10px}
+.crit-row .top b{font-weight:600;flex:1}
+.crit-row .val{font-weight:700;font-size:17px;min-width:22px;text-align:center}
+.crit-row .tx{color:var(--ink-2);font-size:14px;margin-top:4px;white-space:pre-wrap;max-width:75ch}
+.txt{white-space:pre-wrap;max-width:75ch}
+.txt-b{padding:12px 0;border-top:1px solid var(--rule-2)}
+.txt-b:first-child{border-top:0;padding-top:0}
+.txt-b h3{font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:3px}
+.callout{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-radius:var(--r);background:var(--blue-wash);border:1px solid var(--blue-line);margin-bottom:16px;font-size:14px}
+.callout.warn{background:var(--yellow-wash);border-color:#F1DDA0}
+.callout.bad{background:var(--red-wash);border-color:#EDC4C4}
+.callout.ok{background:var(--green-wash);border-color:#BFE3BF}
+.callout .x{flex:1;min-width:0}
+.callout .row-btns{margin-top:8px}
+.reasons{margin:6px 0 0;padding-inline-start:18px;color:var(--ink-2);font-size:14px}
+.reasons li{margin-bottom:2px}
+
+/* ---------- טופס התצפית: דף מחברת ---------- */
+.form{max-width:860px}
+.form .sheet{position:relative;padding-inline-start:44px}
+.form .sheet::before{content:'';position:absolute;inset-block:0;inset-inline-start:33px;width:1px;background:var(--margin)}
+.form .step{position:absolute;inset-inline-start:0;top:13px;width:33px;text-align:center;font-family:var(--serif);font-weight:700;font-size:18px;color:#B86A6A}
+.form .sheet>.hd{padding-inline-start:12px}.form .sheet>.bd{padding-inline-start:12px}
+@media(min-width:700px){
+  .form .sheet{padding-inline-start:64px}.form .sheet::before{inset-inline-start:52px}
+  .form .step{width:52px;font-size:22px;top:11px}
+}
+.auto{border:1px solid var(--blue-line);background:var(--blue-wash);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;font-size:13.5px}
+.auto .h{font-weight:600;color:var(--blue);margin-bottom:5px;font-size:12.5px}
+.auto .g{display:grid;grid-template-columns:repeat(2,1fr);gap:3px 14px}
+@media(min-width:640px){.auto .g{grid-template-columns:repeat(3,1fr)}}
+.auto .g span{color:var(--ink-2)}.auto .g b{font-weight:600}
+.auto.warn{background:var(--yellow-wash);border-color:#F1DDA0}.auto.warn .h{color:#6B4B00}
+.rub{padding:14px 0;border-top:1px solid var(--rule-2)}
+.rub:first-child{border-top:0;padding-top:0}
+.rub .q{font-weight:600;line-height:1.4}
+.rub .w{font-size:12.5px;color:var(--ink-3);margin:1px 0 9px}
+.rate{display:flex;gap:6px;align-items:stretch}
+.rate button{flex:1;min-height:48px;border:1.5px solid var(--rule);border-radius:var(--r);background:var(--sheet);font-weight:700;font-size:18px;color:var(--ink-2);max-width:74px}
+.rate button:hover{border-color:var(--ink-3)}
+.rate button.on{border-color:transparent;color:var(--ink)}
+.rate button.on.r1{color:#fff}
+.rate button.na{font-size:12.5px;font-weight:600;max-width:none;flex:0 0 auto;padding:0 10px;color:var(--ink-3)}
+.rate button.na.on{background:var(--ink-2)!important;color:#fff}
+.rate-ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-3);margin-top:4px;max-width:394px}
+.rub .more-d{margin-top:8px}
+.rub .more-d button{border:0;background:none;color:var(--blue);padding:2px 0;font-size:13.5px;font-weight:500}
+.rub textarea{margin-top:6px;min-height:64px}
+.rub.miss .q{color:var(--red)}
+.savebar{position:sticky;bottom:60px;z-index:20;background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 18px rgba(23,37,47,.12)}
+.savebar .s{flex:1;min-width:0;line-height:1.25}
+.savebar .s b{font-size:22px;font-weight:700}
+.savebar .s span{display:block;font-size:12px;color:var(--ink-3)}
+@media(min-width:960px){.savebar{bottom:16px}}
+
+/* ---------- תרשימים ---------- */
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{font-family:var(--sans);font-size:11.5px;fill:var(--ink-3);font-variant-numeric:tabular-nums}
+.chart .lab{fill:var(--ink-2)}
+.chart .val{fill:var(--ink);font-weight:600}
+.chart .grid{stroke:var(--rule-2);stroke-width:1}
+.chart .axis{stroke:var(--rule);stroke-width:1}
+.chart .ln{fill:none;stroke:var(--blue-mark);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .area{fill:var(--blue-mark);opacity:.1}
+.chart .pt{fill:var(--blue-mark);stroke:var(--sheet);stroke-width:2}
+.chart .col{fill:var(--blue-mark)}
+.chart .hit{fill:transparent;cursor:default}
+.chart .hit:focus{outline:none}
+.chart .hit:hover+.mk,.chart .hit:focus+.mk{opacity:.75}
+.chart .thr{stroke:var(--red);stroke-width:1;opacity:.55}
+.chart .thr-t{fill:#8E1F1F;font-size:11px}
+.chart .ref{stroke:var(--ink);stroke-width:2}
+.minis{display:grid;grid-template-columns:1fr;gap:6px 20px}
+@media(min-width:700px){.minis{grid-template-columns:repeat(3,1fr)}}
+.minis h3{font-size:13.5px;font-weight:600;margin-bottom:2px}
+.minis .muted{font-size:12.5px}
+.hb{display:grid;grid-template-columns:minmax(92px,auto) 1fr 44px;gap:7px 10px;align-items:center;font-size:13.5px}
+.hb .l{color:var(--ink-2);min-width:0}
+.hb .tr{height:14px;position:relative;background:var(--rule-2);border-radius:0 4px 4px 0}
+[dir=rtl] .hb .tr{border-radius:4px 0 0 4px}
+.hb .fl{position:absolute;inset-block:0;inset-inline-start:0;background:var(--blue-mark);border-radius:0 4px 4px 0;max-width:100%}
+[dir=rtl] .hb .fl{border-radius:4px 0 0 4px}
+.hb .rf{position:absolute;inset-block:-3px;width:2px;background:var(--ink)}
+.hb .v{font-weight:600;text-align:end;font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--blue-mark);vertical-align:-1px;margin-inline-end:5px}
+.legend i.rf{width:2px;height:14px;background:var(--ink);border-radius:0}
+.tip{position:fixed;z-index:95;pointer-events:none;background:var(--ink);color:#fff;border-radius:5px;padding:6px 9px;font-size:12.5px;line-height:1.4;max-width:240px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.tip b{font-weight:700;font-size:14px}
+.tip span{display:block;color:#C3CFD7}
+
+/* ---------- שכבות ---------- */
+.ov{position:fixed;inset:0;z-index:80;background:rgba(23,37,47,.45);display:flex;align-items:flex-end;justify-content:center}
+.dlg{background:var(--sheet);width:100%;max-width:560px;max-height:88vh;border-radius:12px 12px 0 0;display:flex;flex-direction:column;animation:up .16s ease-out}
+@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+@media(min-width:700px){.ov{align-items:center}.dlg{border-radius:10px;max-height:80vh}}
+@media(prefers-reduced-motion:reduce){.dlg{animation:none}.busy.on::after{animation-duration:3s}}
+.dlg .dh{padding:14px 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--rule-2)}
+.dlg .dh h2{font-size:17px;font-weight:600;flex:1}
+.dlg .dh button{border:0;background:none;padding:6px;color:var(--ink-2);display:flex}
+.dlg .dh button svg{width:20px;height:20px}
+.dlg .db{padding:14px 16px;overflow-y:auto;flex:1}
+.dlg .df{padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--rule-2);display:flex;gap:8px;justify-content:flex-start;flex-wrap:wrap}
+.dlg .search{padding:10px 16px;border-bottom:1px solid var(--rule-2)}
+.dlg .opts{overflow-y:auto;flex:1;min-height:120px}
+.dlg .opt{display:block;width:100%;border:0;border-top:1px solid var(--rule-2);background:none;text-align:start;padding:11px 16px;line-height:1.3}
+.dlg .opt:first-child{border-top:0}
+.dlg .opt:hover,.dlg .opt.cur{background:var(--blue-wash)}
+.dlg .opt b{font-weight:600;display:block}
+.dlg .opt span{font-size:12.5px;color:var(--ink-2)}
+.dlg .opt.add b{color:var(--blue)}
+.dlg .grp{padding:6px 16px;font-size:12px;font-weight:600;color:var(--ink-3);background:var(--wash);border-top:1px solid var(--rule-2)}
+.toasts{position:fixed;bottom:76px;inset-inline:0;z-index:99;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 16px}
+@media(min-width:960px){.toasts{bottom:24px}}
+.toast{background:var(--ink);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:14px;font-weight:500;max-width:480px;box-shadow:0 6px 20px rgba(0,0,0,.22);pointer-events:auto}
+.toast.err{background:#9E2A2A}
+.gate{max-width:460px;margin:12vh auto 0;padding:0 20px;text-align:center}
+.gate h1{font-family:var(--serif);font-size:30px;margin-bottom:10px}
+.gate p{color:var(--ink-2);margin-bottom:8px}
+.spin{padding:48px 16px;text-align:center;color:var(--ink-3)}
+
+/* ---------- הדפסה ---------- */
+.print-only{display:none}
+@media print{
+  body{background:#fff;font-size:12.5px}
+  .rail,.tabbar,.topbar,.busy,.toasts,.no-print,.back,.savebar{display:none!important}
+  .main{padding:0;max-width:none}
+  .sheet{border:0;border-top:1px solid #999;border-radius:0;break-inside:avoid;margin-bottom:8px}
+  .sheet>.hd{padding:8px 0 0}.sheet>.bd{padding:8px 0}
+  .print-only{display:block}
+  .ledger{border-color:#999}
+  a{color:inherit}
+}
+
+</style>
+</head>
+<body>
+<div id="busy" class="busy"></div>
+<div class="app" id="app" hidden>
+  <aside class="rail no-print" id="rail"></aside>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header class="topbar no-print" id="topbar"></header>
+    <main class="main" id="main"></main>
+  </div>
+  <nav class="tabbar no-print" id="tabbar" aria-label="ניווט ראשי"></nav>
+</div>
+<div class="gate" id="gate"><h1>ניטור תצפיות</h1><p id="gateMsg">מתחבר…</p></div>
+<div class="toasts" id="toasts"></div>
+<script>
+'use strict';
+/* ==========================================================================
+   ליבה: מצב, עזרים, קריאות לשרת, ניווט, חלונות
+   ========================================================================== */
+var D = null;          // הנתונים מהשרת
+var X = null;          // מה שמחושב מהם
+var ST = {
+  view: 'home', p: {},
+  sort: {},
+  list: { q: '', ra: '', pl: '', sh: '', st: '', when: '', ob: '', limit: 50 },
+  mash: { q: '', ra: '', who: '', st: '', limit: 60 },
+  tab: { rep: 'nat', care: 'alerts', adm: 'users' },
+  rep: { dim: 'ra', resp: 'mn', role: '' },
+  reco: { who: '' },
+  log: null, users: null
+};
+var ACT = {}, VIEWS = {}, CH = {}, INP = {};
+
+function $(s, el) { return (el || document).querySelector(s); }
+function $$(s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); }
+function esc(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function norm(v) {
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/[׳״‘’“”"'`]/g, '').replace(/\s+/g, ' ').trim();
+}
+function same(a, b) { var x = norm(a); return x !== '' && x === norm(b); }
+function uniq(a) { var s = {}, o = []; a.forEach(function (x) { if (x && !s[x]) { s[x] = 1; o.push(x); } }); return o; }
+function heSort(a) { return a.slice().sort(function (x, y) { return String(x).localeCompare(String(y), 'he'); }); }
+
+/* ---------- תאריכים ---------- */
+var MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+function toD(iso) { var p = String(iso).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function isoOf(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function fmtD(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+function fmtS(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1]; }
+function daysAgo(iso) { if (!iso) return null; return Math.round((toD(D.today) - toD(iso)) / 86400000); }
+function ago(iso) {
+  var n = daysAgo(iso);
+  if (n === null) return '';
+  if (n === 0) return 'היום';
+  if (n === 1) return 'אתמול';
+  if (n < 0) return 'בעוד ' + (-n) + ' ימים';
+  return 'לפני ' + n + ' ימים';
+}
+function monthLabel(key) { var p = key.split('-'); return MONTHS[+p[1] - 1] + ' ' + p[0]; }
+function monthShort(key) { var p = key.split('-'); return p[1] + '/' + p[0].slice(2); }
+function f1(x) { return (x === null || x === undefined || isNaN(x)) ? '—' : String(Math.round(x * 10) / 10); }
+function f2(x) { return (x === null || x === undefined || isNaN(x)) ? '—' : (Math.round(x * 100) / 100).toFixed(2); }
+function sg(x) { return (x === null || x === undefined) ? '—' : '<span dir="ltr">' + (x > 0 ? '+' : '') + x + '</span>'; }
+function pct(x) { return (x === null || x === undefined || isNaN(x)) ? '—' : Math.round(x * 100) + '%'; }
+
+/* ---------- אייקונים ---------- */
+var IC = {
+  home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/>',
+  list: '<path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  people: '<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M21 19c-.3-2-1.300-3.5-3-4.300"/>',
+  chart: '<path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/>',
+  care: '<path d="M12 3.5 21 19H3z"/><path d="M12 10v4M12 16.500v.01"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.500M12 18.500V21M3 12h2.500M18.500 12H21M5.600 5.600l1.800 1.800M16.600 16.600l1.800 1.800M5.600 18.400l1.800-1.800M16.600 7.400l1.800-1.800"/>',
+  more: '<circle cx="5" cy="12" r="1.300"/><circle cx="12" cy="12" r="1.300"/><circle cx="19" cy="12" r="1.300"/>',
+  back: '<path d="M9 6l6 6-6 6"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.300 6.300"/><path d="M20 5v6h-6"/>',
+  down: '<path d="M6 9l6 6 6-6"/>',
+  print: '<path d="M7 8V4h10v4"/><rect x="4" y="8" width="16" height="8" rx="1.500"/><path d="M7 14h10v6H7z"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.500 6.500l4 4"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6.500 7l1 13h9l1-13"/>',
+  check: '<path d="M5 12.500l4.500 4.500L19 7.500"/>',
+  dl: '<path d="M12 4v11M7.500 11l4.500 4.500 4.500-4.500M5 20h14"/>',
+  doc: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>',
+  ext: '<path d="M14 5h5v5M19 5l-8 8"/><path d="M18 14v5H5V6h5"/>'
+};
+function ic(n) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.800" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + IC[n] + '</svg>';
+}
+
+/* ---------- קריאה לשרת ---------- */
+var _pending = 0;
+function busy(n) {
+  _pending = Math.max(0, _pending + n);
+  var b = $('#busy');
+  if (b) b.className = 'busy' + (_pending ? ' on' : '');
+}
+function cleanErr(e) {
+  var m = (e && e.message) ? e.message : String(e || '');
+  m = m.replace(/^(Exception|Error|ScriptError):\s*/i, '').replace(/^(Exception|Error):\s*/i, '');
+  if (/NetworkError|Failed to fetch|התחברות|network/i.test(m)) m = 'אין חיבור לשרת. בדוק את החיבור לרשת ונסה שוב.';
+  if (/Authorization|PERMISSION_DENIED/i.test(m)) m = 'ההרשאה פגה. רענן את הדף והיכנס מחדש.';
+  return m || 'שגיאה לא צפויה.';
+}
+function call(fn) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  busy(1);
+  return new Promise(function (res, rej) {
+    try {
+      var r = google.script.run
+        .withSuccessHandler(function (v) { busy(-1); res(v); })
+        .withFailureHandler(function (e) { busy(-1); rej(new Error(cleanErr(e))); });
+      r[fn].apply(r, args);
+    } catch (e) { busy(-1); rej(new Error(cleanErr(e))); }
+  });
+}
+
+/* ---------- הודעות ---------- */
+function toast(msg, kind) {
+  var box = $('#toasts');
+  var t = document.createElement('div');
+  t.className = 'toast' + (kind === 'err' ? ' err' : '');
+  t.setAttribute('role', kind === 'err' ? 'alert' : 'status');
+  t.textContent = msg;
+  box.appendChild(t);
+  setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, kind === 'err' ? 7000 : 3200);
+}
+function fail(e) { toast(cleanErr(e), 'err'); }
+
+/* ---------- חלונות ---------- */
+var _dlg = null;
+function closeDlg(val) {
+  if (!_dlg) return;
+  var d = _dlg; _dlg = null;
+  if (d.el.parentNode) d.el.parentNode.removeChild(d.el);
+  if (d.prev && d.prev.focus) { try { d.prev.focus(); } catch (e) {} }
+  if (d.done) d.done(val === undefined ? null : val);
+}
+function openDlg(o) {
+  if (_dlg) closeDlg(null);
+  var ov = document.createElement('div');
+  ov.className = 'ov';
+  ov.innerHTML = '<div class="dlg" role="dialog" aria-modal="true" aria-label="' + esc(o.title) + '">' +
+    '<div class="dh"><h2>' + esc(o.title) + '</h2><button type="button" data-act="dlgClose" aria-label="סגור">' + ic('x') + '</button></div>' +
+    (o.html || '') + '</div>';
+  ov.addEventListener('mousedown', function (ev) { if (ev.target === ov) closeDlg(null); });
+  document.body.appendChild(ov);
+  _dlg = { el: ov, done: o.done, prev: document.activeElement, onAct: o.onAct };
+  var f = $('[data-focus]', ov) || $('input,select,textarea,button.btn', ov);
+  if (f) setTimeout(function () { try { f.focus(); } catch (e) {} }, 30);
+  return ov;
+}
+ACT.dlgClose = function () { closeDlg(null); };
+document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && _dlg) closeDlg(null); });
+
+function confirmBox(o) {
+  return new Promise(function (res) {
+    openDlg({
+      title: o.title,
+      html: '<div class="db"><p class="txt">' + esc(o.text) + '</p></div>' +
+        '<div class="df"><button type="button" class="btn ' + (o.danger ? 'danger' : 'pri') + '" data-act="dlgOk" data-focus>' + esc(o.ok || 'אישור') + '</button>' +
+        '<button type="button" class="btn" data-act="dlgClose">' + esc(o.cancel || 'ביטול') + '</button></div>',
+      done: function (v) { res(v === true); }
+    });
+  });
+}
+ACT.dlgOk = function () { closeDlg(true); };
+
+/* בוחר עם חיפוש. items: [{v, t, s, g}] — ערך, כותרת, משנה, קבוצה */
+function pick(o) {
+  return new Promise(function (res) {
+    var ov = openDlg({
+      title: o.title,
+      html: '<div class="search"><input class="in" type="search" data-focus placeholder="' + esc(o.ph || 'חיפוש') + '" autocomplete="off"></div><div class="opts"></div>',
+      done: res
+    });
+    var input = $('input', ov), box = $('.opts', ov);
+    function draw() {
+      var q = norm(input.value).toLowerCase();
+      var h = '', n = 0, grp = null, exact = false;
+      o.items.forEach(function (it, i) {
+        var hay = norm(it.t + ' ' + (it.s || '')).toLowerCase();
+        if (q && hay.indexOf(q) === -1) return;
+        if (norm(it.t).toLowerCase() === q) exact = true;
+        if (n >= 250) return;
+        if (it.g && it.g !== grp) { grp = it.g; h += '<div class="grp">' + esc(grp) + '</div>'; }
+        h += '<button type="button" class="opt' + (it.v === o.cur ? ' cur' : '') + '" data-i="' + i + '"><b>' + esc(it.t) + '</b>' +
+          (it.s ? '<span>' + esc(it.s) + '</span>' : '') + '</button>';
+        n++;
+      });
+      if (o.custom && q && !exact) {
+        h += '<button type="button" class="opt add" data-custom="1"><b>' + esc(o.customLabel || 'השתמש ב') + ' "' + esc(input.value.trim()) + '"</b>' +
+          '<span>לא ברשימה</span></button>';
+      }
+      if (!h) h = '<div class="empty">לא נמצא דבר' + (o.custom ? '' : '. נסה חיפוש אחר') + '</div>';
+      if (o.clear && !q) h = '<button type="button" class="opt" data-clear="1"><span>' + esc(o.clear) + '</span></button>' + h;
+      box.innerHTML = h;
+    }
+    input.addEventListener('input', draw);
+    input.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { var first = $('.opt', box); if (first) first.click(); ev.preventDefault(); }
+    });
+    box.addEventListener('click', function (ev) {
+      var b = ev.target.closest('.opt');
+      if (!b) return;
+      if (b.dataset.clear) closeDlg('');
+      else if (b.dataset.custom) closeDlg(input.value.trim());
+      else closeDlg(o.items[+b.dataset.i].v);
+    });
+    draw();
+  });
+}
+
+/* ---------- טבלה עם מיון ---------- */
+/* cols: [{k, t, n(מספרי), f(פורמט -> html), v(ערך למיון), c(מחלקה)}] */
+function table(id, cols, rows, o) {
+  o = o || {};
+  var s = ST.sort[id] || o.sort || null;
+  var data = rows.slice();
+  if (s) {
+    var col = cols.filter(function (c) { return c.k === s.k; })[0];
+    if (col) {
+      var val = col.v || function (r) { return r[col.k]; };
+      data.sort(function (a, b) {
+        var x = val(a), y = val(b);
+        var ex = (x === null || x === undefined || x === ''), ey = (y === null || y === undefined || y === '');
+        if (ex && ey) return 0; if (ex) return 1; if (ey) return -1;
+        var r = (typeof x === 'number' && typeof y === 'number') ? x - y : String(x).localeCompare(String(y), 'he');
+        return s.d === 'd' ? -r : r;
+      });
+    }
+  }
+  var lim = o.limit || data.length;
+  var h = '<div class="tw"><table class="t"><thead><tr>';
+  cols.forEach(function (c) {
+    var on = s && s.k === c.k;
+    h += '<th class="s' + (c.n ? ' n' : '') + '" data-act="sort" data-id="' + esc(id) + '" data-k="' + esc(c.k) + '" data-num="' + (c.n ? 1 : 0) + '"' +
+      (on ? ' aria-sort="' + (s.d === 'd' ? 'descending' : 'ascending') + '"' : '') + ' tabindex="0">' + esc(c.t) +
+      (on ? '<span class="ar">' + (s.d === 'd' ? '▼' : '▲') + '</span>' : '') + '</th>';
+  });
+  h += '</tr></thead><tbody>';
+  data.slice(0, lim).forEach(function (r) {
+    var attr = o.row ? o.row(r) : '';
+    h += '<tr' + (attr ? ' class="tap" ' + attr : '') + '>';
+    cols.forEach(function (c) {
+      var v = c.f ? c.f(r) : esc(r[c.k] === null || r[c.k] === undefined ? '—' : r[c.k]);
+      h += '<td class="' + (c.n ? 'n ' : '') + (c.c || '') + '">' + v + '</td>';
+    });
+    h += '</tr>';
+  });
+  h += '</tbody>' + (o.foot ? '<tfoot>' + o.foot + '</tfoot>' : '') + '</table></div>';
+  if (!data.length) h = '<div class="empty">' + (o.empty || 'אין נתונים להצגה') + '</div>';
+  else if (data.length > lim) h += '<div class="more"><button type="button" class="btn sm" data-act="' + esc(o.moreAct || 'more') + '">הצג עוד ' + Math.min(data.length - lim, 60) + ' מתוך ' + (data.length - lim) + '</button></div>';
+  return h;
+}
+ACT.sort = function (el) {
+  var id = el.dataset.id, k = el.dataset.k, cur = ST.sort[id];
+  var first = el.dataset.num === '1' ? 'd' : 'a';
+  ST.sort[id] = (cur && cur.k === k) ? { k: k, d: cur.d === 'd' ? 'a' : 'd' } : { k: k, d: first };
+  render();
+};
+
+/* ---------- ציון ---------- */
+function scHtml(v, o) {
+  if (v === null || v === undefined || v === '') return '<span class="sc none' + (o && o.big ? ' big' : '') + '">' + ((o && o.miss) ? 'חסר' : '—') + '</span>';
+  var c = v < D.cfg.low ? ' low' : (v >= 85 ? ' high' : '');
+  return '<span class="sc' + c + (o && o.big ? ' big' : '') + '"' + (v < D.cfg.low ? ' title="מתחת לסף ' + D.cfg.low + '"' : '') + '>' + f1(v) + '</span>';
+}
+function dots(v) {
+  if (v === '-') return '<span class="muted">לא נצפה</span>';
+  if (typeof v !== 'number') return '<span class="muted">—</span>';
+  var h = '<span class="dots" role="img" aria-label="' + v + ' מתוך 5">';
+  for (var i = 1; i <= 5; i++) h += '<i' + (i <= v ? ' class="r' + Math.round(v) + '"' : '') + '></i>';
+  return h + '</span>';
+}
+function crCell(v) {
+  if (v === null || v === undefined) return '—';
+  var r = Math.max(1, Math.min(5, Math.round(v)));
+  var bg = ['', 'var(--red-wash)', 'var(--orange-wash)', 'var(--yellow-wash)', '#EEF7E6', 'var(--green-wash)'][r];
+  return '<span class="cr" style="background:' + bg + '">' + (Math.round(v * 10) / 10) + '</span>';
+}
+
+/* ---------- ניווט ---------- */
+function go(view, p, o) {
+  if (_dlg) closeDlg(null);
+  if (ST.view === 'form' && view !== 'form' && typeof formLeave === 'function') formLeave();
+  ST.view = view; ST.p = p || {};
+  render();
+  window.scrollTo(0, 0);
+  if (!(o && o.silent)) {
+    try { google.script.history.push({ v: view, p: ST.p }); } catch (e) {}
+  }
+}
+ACT.go = function (el) {
+  var p = {};
+  Object.keys(el.dataset).forEach(function (k) { if (k !== 'act' && k !== 'v') p[k] = el.dataset[k]; });
+  go(el.dataset.v, p);
+};
+
+function render() {
+  var m = $('#main');
+  var top = { home: 'home', form: 'form', list: 'list', obs: 'list', mash: 'mash', card: 'mash', rep: 'rep', care: 'care', adm: 'adm' }[ST.view] || 'home';
+  $$('[data-nav]').forEach(function (b) { b.classList.toggle('on', b.dataset.nav === top); });
+  var f = VIEWS[ST.view] || VIEWS.home;
+  try { m.innerHTML = f(); }
+  catch (e) {
+    m.innerHTML = '<div class="sheet"><div class="empty"><b>המסך לא נטען</b>' + esc(e.message) + '</div></div>';
+    if (window.console) console.error(e);
+  }
+  if (typeof afterRender === 'function') afterRender();
+}
+
+/* ---------- אירועים ---------- */
+document.addEventListener('click', function (ev) {
+  var el = ev.target.closest('[data-act]');
+  if (!el) return;
+  var f = ACT[el.dataset.act];
+  if (f) f(el, ev);
+});
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  var el = ev.target;
+  if (el.matches && el.matches('th[data-act],tr[data-act]')) { ev.preventDefault(); el.click(); }
+});
+document.addEventListener('change', function (ev) {
+  var el = ev.target;
+  if (el.dataset && el.dataset.ch && CH[el.dataset.ch]) CH[el.dataset.ch](el, ev);
+});
+var _inpT = null;
+document.addEventListener('input', function (ev) {
+  var el = ev.target;
+  if (!(el.dataset && el.dataset.inp && INP[el.dataset.inp])) return;
+  if (el.dataset.now) { INP[el.dataset.inp](el, ev); return; }
+  clearTimeout(_inpT);
+  _inpT = setTimeout(function () { INP[el.dataset.inp](el, ev); }, 220);
+});
+
+/* ---------- רמז לתרשים ---------- */
+(function () {
+  var tip = null;
+  function show(el) {
+    if (!tip) { tip = document.createElement('div'); tip.className = 'tip'; document.body.appendChild(tip); }
+    var parts = String(el.getAttribute('data-tip')).split('|');
+    tip.textContent = '';
+    var b = document.createElement('b'); b.textContent = parts[0]; tip.appendChild(b);
+    for (var i = 1; i < parts.length; i++) { var s = document.createElement('span'); s.textContent = parts[i]; tip.appendChild(s); }
+    tip.style.display = 'block';
+    var r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    var x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+    var y = r.top - h - 8; if (y < 8) y = r.bottom + 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  function hide() { if (tip) tip.style.display = 'none'; }
+  document.addEventListener('mouseover', function (ev) { var el = ev.target.closest && ev.target.closest('[data-tip]'); if (el) show(el); else hide(); });
+  document.addEventListener('focusin', function (ev) { var el = ev.target.closest && ev.target.closest('[data-tip]'); if (el) show(el); });
+  document.addEventListener('focusout', hide);
+  window.addEventListener('scroll', hide, true);
+})();
+
+/* ---------- אחסון מקומי ---------- */
+function lsGet(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+/* ---------- הורדת CSV ---------- */
+function downloadCsv(name, rows) {
+  var txt = rows.map(function (r) {
+    return r.map(function (c) {
+      var s = String(c === null || c === undefined ? '' : c);
+      if (/^[=+\-@]/.test(s) && isNaN(Number(s))) s = "'" + s;      // לא נוסחה באקסל
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(',');
+  }).join('\r\n');
+  try {
+    var blob = new Blob(['﻿' + txt], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.parentNode.removeChild(a); }, 500);
+    toast('הקובץ ירד: ' + name);
+  } catch (e) { toast('ההורדה נכשלה בדפדפן הזה.', 'err'); }
+}
+
+/* ==========================================================================
+   חישובים: כל הדוחות נגזרים כאן מרשימת התצפיות, בדפדפן.
+   הכללים זהים לאלה של גיליונות הניתוח בקובץ.
+   ========================================================================== */
+function r1(x) { return Math.round(x * 10) / 10; }
+function trimNum(x) { return String(Math.round(x * 100) / 100); }
+
+function semOf(iso) {
+  if (!iso) return '';
+  var d = toD(iso), S = D.cfg.semesters || [];
+  for (var i = 0; i < S.length; i++) {
+    var a = new Date(S[i][1][0], S[i][1][1], S[i][1][2]);
+    var b = new Date(S[i][2][0], S[i][2][1], S[i][2][2], 23, 59, 59);
+    if (d >= a && d <= b) return S[i][0];
+  }
+  return '';
+}
+function curSem() {
+  var S = D.cfg.semesters || [];
+  return semOf(D.today) || (S.length ? S[S.length - 1][0] : '');
+}
+function schoolWeek(iso) {
+  var ss = D.cfg.schoolStart;
+  if (!iso || !ss) return 0;
+  var start = new Date(ss[0], ss[1], ss[2]), x = toD(iso);
+  if (x < start) return 0;
+  return Math.floor((x - start) / (7 * 86400000)) + 1;
+}
+function weekStart(n) {
+  var ss = D.cfg.schoolStart, d = new Date(ss[0], ss[1], ss[2]);
+  d.setDate(d.getDate() + (n - 1) * 7);
+  return isoOf(d);
+}
+
+function agg(list) {
+  var n6 = D.cfg.criteria.length;
+  var a = { n: 0, cnt: 0, sum: 0, low: 0, crit: [], critN: [], seen: {}, last: '', fb: 0 };
+  for (var i = 0; i < n6; i++) { a.crit.push(0); a.critN.push(0); }
+  list.forEach(function (o) {
+    a.n++;
+    if (o.m) a.seen[o.m] = 1;
+    if (o.s !== null && o.s !== undefined) { a.cnt++; a.sum += o.s; if (o.s < D.cfg.low) a.low++; }
+    (o.c || []).forEach(function (v, i) { if (typeof v === 'number') { a.crit[i] += v; a.critN[i]++; } });
+    if (o.d && o.d > a.last) a.last = o.d;
+    if (o.fb === 'כן') a.fb++;
+  });
+  a.avg = a.cnt ? a.sum / a.cnt : null;
+  a.mash = Object.keys(a.seen).length;
+  a.ca = a.crit.map(function (s, i) { return a.critN[i] ? s / a.critN[i] : null; });
+  return a;
+}
+
+function isMadmach(o) { return (D.cfg.madmach || []).indexOf(o.sh) !== -1; }
+function isMine(o) { return (o.by && o.by === D.user.email) || same(o.ob, D.user.name); }
+
+/* ---------- מש"קית אחת ---------- */
+function mashStats(name) {
+  var cfg = D.cfg, list = X.byMash[name] || [];
+  var a = agg(list);
+  var st = { n: name, total: list.length, list: list, avg: a.avg, ca: a.ca };
+  var last = list.length ? list[list.length - 1] : null;
+  st.last = last;
+  st.lastScore = last ? last.s : null;
+  st.firstScore = list.length ? list[0].s : null;
+  st.semN = list.filter(function (o) { return semOf(o.d) === X.sem; }).length;
+  st.age = last ? last.age : null;
+  st.diff = (list.length >= 2 && st.lastScore !== null && st.firstScore !== null)
+    ? r1(st.lastScore - st.firstScore) : null;
+
+  /* סיכון — כמו "מש"קיות שדורשות טיפול" */
+  var reasons = [], level = 0;
+  if (last) {
+    if (st.lastScore !== null && st.lastScore < cfg.low) {
+      reasons.push('הציון האחרון ' + f1(st.lastScore) + ', מתחת לסף ' + cfg.low); level += 2;
+    }
+    if (st.diff !== null && st.diff <= -cfg.riskDrop) {
+      reasons.push('ירידה של ' + Math.abs(st.diff) + ' נקודות מהתצפית הראשונה (' + f1(st.firstScore) + ' ← ' + f1(st.lastScore) + ')'); level += 2;
+    }
+    var weak = [];
+    (last.c || []).forEach(function (v, i) { if (typeof v === 'number' && v <= 2) weak.push(cfg.criteria[i].label + ' (' + v + ')'); });
+    if (weak.length >= cfg.riskWeak) { reasons.push('חולשה ב-' + weak.length + ' קריטריונים: ' + weak.join(', ')); level += 2; }
+    else if (weak.length === 1) { reasons.push('קריטריון חלש בודד: ' + weak[0]); level += 1; }
+    if (list.length >= 2) {
+      var prev = list[list.length - 2].s;
+      if (st.lastScore !== null && prev !== null && st.lastScore < cfg.low && prev < cfg.low) {
+        reasons.push('שתי תצפיות רצופות מתחת לסף (' + f1(prev) + ' ואז ' + f1(st.lastScore) + ')'); level += 3;
+        st.lowTwice = [prev, st.lastScore];
+      }
+    }
+    if (last.fb !== 'כן' && st.age !== null && st.age > cfg.feedbackDays) {
+      reasons.push('לא הועבר משוב כבר ' + st.age + ' ימים מאז התצפית'); level += 1;
+    }
+    if (st.semN < cfg.target) { reasons.push('בוצעו ' + st.semN + ' מתוך ' + cfg.target + ' תצפיות ב' + X.sem); level += 1; }
+    if (st.age !== null && st.age > cfg.staleDays) { reasons.push('עברו ' + st.age + ' ימים מהתצפית האחרונה'); level += 1; }
+  }
+  st.risk = reasons.length ? {
+    level: level, reasons: reasons,
+    label: level >= 5 ? 'קריטי' : (level >= 3 ? 'גבוה' : 'למעקב'),
+    cls: level >= 5 ? 'red' : (level >= 3 ? 'orange' : 'yellow')
+  } : null;
+
+  /* המלצה — כמו "המלצות למנה"ד" */
+  var gap = cfg.target - st.semN, pri = 0, why = '';
+  if (!last) { pri = 1; why = 'מעולם לא נצפתה — אין עליה שום מידע. זו התצפית שתיתן הכי הרבה ערך.'; }
+  else if (gap > 0 && st.lastScore !== null && st.lastScore < cfg.low) {
+    pri = 2; why = 'הציון האחרון ' + f1(st.lastScore) + ' מתחת לסף, וחסרות ' + gap + ' תצפיות להשלמת היעד. צריכה ליווי צמוד.';
+  } else if (gap > 0) { pri = 3; why = 'חסרות ' + gap + ' תצפיות מתוך ' + cfg.target + ' ב' + X.sem + '.'; }
+  else if (st.age !== null && st.age > cfg.staleDays) { pri = 4; why = 'עמדה ביעד, אבל עברו ' + st.age + ' ימים מהתצפית האחרונה. רענון.'; }
+  st.reco = pri ? { pri: pri, why: why, gap: Math.max(gap, 0), label: ['דחוף', 'גבוה', 'רגיל', 'רענון'][pri - 1], cls: ['red', 'orange', 'plain', 'blue'][pri - 1] } : null;
+
+  st.status = !last ? 'never' : (st.risk && st.risk.level >= 3 ? 'risk' : (st.semN < cfg.target ? 'below' : 'ok'));
+  return st;
+}
+function person(name) {
+  return X.people[name] || { n: name, rows: [], ra: [], mn: [], mf: [], pl: [], mz: [], mc: '', pid: '', x: '', unknown: true };
+}
+function statusChip(st) {
+  if (st.status === 'never') return '<span class="chip yellow">טרם נצפתה</span>';
+  if (st.status === 'risk') return '<span class="chip ' + st.risk.cls + '">סיכון ' + esc(st.risk.label) + '</span>';
+  if (st.status === 'below') return '<span class="chip plain">מתחת ליעד</span>';
+  return '<span class="chip green">תקין</span>';
+}
+
+/* ---------- חישוב ראשי ---------- */
+function recompute() {
+  X = { valid: [], broken: [], byRow: {}, byMash: {}, people: {}, ms: {} };
+  D.obs.forEach(function (o) {
+    X.byRow[o.r] = o;
+    if (o.m && o.d) { o.t = toD(o.d).getTime(); o.age = daysAgo(o.d); X.valid.push(o); }
+    else X.broken.push(o);
+  });
+  X.valid.sort(function (a, b) { return (b.t - a.t) || (b.r - a.r); });
+  for (var i = X.valid.length - 1; i >= 0; i--) {
+    var o = X.valid[i];
+    (X.byMash[o.m] || (X.byMash[o.m] = [])).push(o);
+  }
+  X.sem = curSem();
+
+  D.roster.forEach(function (r) {
+    if (r.sus) return;
+    var p = X.people[r.n] || (X.people[r.n] = { n: r.n, rows: [], ra: [], mn: [], mf: [], pl: [], mz: [], mc: '', pid: '', x: '' });
+    p.rows.push(r);
+    [['ra', r.ra], ['mn', r.mn], ['mf', r.mf], ['pl', r.pl], ['mz', r.mz]].forEach(function (x) {
+      if (x[1] && p[x[0]].indexOf(x[1]) === -1) p[x[0]].push(x[1]);
+    });
+    if (r.mc) p.mc = r.mc;
+    if (r.pid) p.pid = r.pid;
+    if (r.x) p.x = r.x;
+  });
+
+  var names;
+  if (D.user.seesAll) names = Object.keys(X.people);
+  else if (D.mine && D.mine.length) names = D.mine.filter(function (n) { return X.people[n]; });
+  else names = [];
+  X.scoped = !D.user.seesAll;
+  X.universe = heSort(names);
+  X.inUni = {}; X.universe.forEach(function (n) { X.inUni[n] = 1; });
+
+  uniq(X.universe.concat(Object.keys(X.byMash))).forEach(function (n) { X.ms[n] = mashStats(n); });
+  X.nat = agg(X.valid);
+  X.seenUni = X.universe.filter(function (n) { return X.ms[n].total > 0; }).length;
+
+  X.alerts = buildAlerts();
+  X.reco = buildReco();
+  X.risk = Object.keys(X.byMash).map(function (n) { return X.ms[n]; })
+    .filter(function (s) { return s.risk; })
+    .sort(function (a, b) { return (b.risk.level - a.risk.level) || ((a.lastScore === null ? 999 : a.lastScore) - (b.lastScore === null ? 999 : b.lastScore)); });
+  // רק טיוטות מהחודש האחרון; תצפיות ישנות שלא סומנו אינן "טיוטה שמחכה"
+  X.drafts = D.obs.filter(function (o) { return !o.dn && o.e && isMine(o) && (!o.d || daysAgo(o.d) <= 30); });
+  X.quality = null;
+}
+
+/* ---------- התראות ---------- */
+function buildAlerts() {
+  var cfg = D.cfg, out = [];
+  Object.keys(X.byMash).forEach(function (n) {
+    var st = X.ms[n];
+    if (st.lowTwice) {
+      out.push({ sev: 1, kind: 'low2', title: 'ציון נמוך פעמיים ברצף', m: n, o: st.last,
+        info: f1(st.lowTwice[0]) + ' ואז ' + f1(st.lowTwice[1]), todo: 'לתאם שיחת משוב ותצפית מלווה' });
+    }
+  });
+  X.valid.forEach(function (o) {
+    if (o.age === null || o.age <= cfg.feedbackDays || o.fb === 'כן') return;
+    out.push({ sev: o.age > 21 ? 1 : 2, kind: 'fb', title: 'משוב לא הועבר ' + o.age + ' ימים', m: o.m, o: o,
+      info: o.ob ? 'מתצפת: ' + o.ob : '', todo: 'להעביר משוב ולסמן' });
+  });
+  out.sort(function (a, b) { return (a.sev - b.sev) || (a.o.t - b.o.t); });
+  return out;
+}
+
+/* ---------- המלצות ---------- */
+function buildReco() {
+  var out = [];
+  X.universe.forEach(function (n) {
+    var st = X.ms[n];
+    if (st.reco) out.push(st);
+  });
+  out.sort(function (a, b) {
+    if (a.reco.pri !== b.reco.pri) return a.reco.pri - b.reco.pri;
+    var x = a.lastScore, y = b.lastScore;
+    if (x === null && y === null) return a.n.localeCompare(b.n, 'he');
+    if (x === null) return -1; if (y === null) return 1;
+    return x - y;
+  });
+  return out;
+}
+
+/* ---------- פילוח ---------- */
+function pivot(list, keyFn) {
+  var box = {}, order = [];
+  list.forEach(function (o) {
+    var k = keyFn(o);
+    if (!k) return;
+    var id = (typeof k === 'object') ? k.id : k;
+    if (!box[id]) { box[id] = { key: k, list: [] }; order.push(id); }
+    box[id].list.push(o);
+  });
+  return order.map(function (id) {
+    var a = agg(box[id].list), k = box[id].key;
+    return { id: id, key: (typeof k === 'object') ? k.t : k, sub: (typeof k === 'object') ? k.s : '',
+      n: a.n, share: list.length ? a.n / list.length : 0, mash: a.mash, avg: a.avg === null ? null : r1(a.avg),
+      low: a.low, ca: a.ca, last: a.last, fbp: a.n ? a.fb / a.n : 0 };
+  });
+}
+
+/* ---------- אחריות ---------- */
+function responsibility(field) {
+  var own = {};
+  D.roster.forEach(function (r) {
+    if (r.sus) return;
+    var who = r[field];
+    if (!who || /^\d{5,}$/.test(who)) return;
+    if (!X.scoped || X.inUni[r.n]) {
+      var o = own[who] || (own[who] = { mash: {}, rash: {} });
+      o.mash[r.n] = 1;
+      if (r.ra) o.rash[r.ra] = 1;
+    }
+  });
+  var byRash = {};
+  X.valid.forEach(function (o) {
+    if (!o.ra || o.s === null) return;
+    var b = byRash[o.ra] || (byRash[o.ra] = { sum: 0, cnt: 0 });
+    b.sum += o.s; b.cnt++;
+  });
+  return Object.keys(own).map(function (who) {
+    var mine = Object.keys(own[who].mash), rash = Object.keys(own[who].rash);
+    var all = [], seen = 0;
+    mine.forEach(function (m) { var l = X.byMash[m]; if (l && l.length) { seen++; all = all.concat(l); } });
+    var a = agg(all), rs = 0, rc = 0;
+    rash.forEach(function (r) { if (byRash[r]) { rs += byRash[r].sum; rc += byRash[r].cnt; } });
+    return { who: who, total: mine.length, seen: seen, none: mine.length - seen,
+      cov: mine.length ? seen / mine.length : 0, rash: heSort(rash), n: a.n,
+      avg: a.avg === null ? null : r1(a.avg), ravg: rc ? r1(rs / rc) : null, ca: a.ca, last: a.last, names: mine };
+  });
+}
+
+/* ---------- מתצפתים ---------- */
+function observers(role) {
+  var cfg = D.cfg, by = {}, curWeek = Math.max(schoolWeek(D.today), 1);
+  X.valid.forEach(function (o) {
+    if (!o.ob) return;
+    if (role && o.ro !== role) return;
+    var a = by[o.ob] || (by[o.ob] = { who: o.ob, role: '', list: [], w: {}, same: {} });
+    a.list.push(o);
+    if (o.ro) a.role = o.ro;
+    var wn = schoolWeek(o.d);
+    if (wn > 0) a.w[wn] = (a.w[wn] || 0) + 1;
+    (o.c || []).forEach(function (v) { if (typeof v === 'number') a.same[v] = (a.same[v] || 0) + 1; });
+  });
+  var g = X.nat.avg;
+  return Object.keys(by).map(function (k) {
+    var a = by[k], ag = agg(a.list);
+    var diff = (ag.avg === null || g === null) ? null : r1(ag.avg - g);
+    var sd = null;
+    var scores = a.list.map(function (o) { return o.s; }).filter(function (s) { return s !== null; });
+    if (scores.length >= 2) {
+      var m = ag.avg;
+      sd = r1(Math.sqrt(scores.reduce(function (s, x) { return s + (x - m) * (x - m); }, 0) / scores.length));
+    }
+    var top = 0, tot = 0;
+    Object.keys(a.same).forEach(function (v) { tot += a.same[v]; if (a.same[v] > top) top = a.same[v]; });
+    var uniform = tot >= 12 && (top / tot) >= 0.8;
+    var status = 'תקין', cls = 'green', note = 'מדרג בטווח הארצי — אין צורך בפעולה.';
+    if (ag.n < 3) { status = 'מעט תצפיות'; cls = 'plain'; note = 'רק ' + ag.n + ' תצפיות — אי אפשר להסיק מהן על סגנון הדירוג.'; }
+    else if (uniform) { status = 'דירוג אחיד'; cls = 'orange'; note = 'נותן את אותו ציון ב-' + Math.round(top / tot * 100) + '% מהקריטריונים. סימן שאינו מבחין בין ממדים — שווה שיחה.'; }
+    else if (diff !== null && diff >= 5) { status = 'מקל'; cls = 'orange'; note = 'נותן בממוצע ' + diff + ' נקודות מעל הממוצע הכללי. מש"קיות שנצפו על ידו נראות טובות יותר ממה שהן.'; }
+    else if (diff !== null && diff <= -5) { status = 'מחמיר'; cls = 'orange'; note = 'נותן בממוצע ' + Math.abs(diff) + ' נקודות מתחת לממוצע הכללי. מש"קיות שנצפו על ידו נראות חלשות יותר ממה שהן.'; }
+    else if (sd !== null && sd < 3 && ag.n >= 5) { status = 'פיזור נמוך'; cls = 'yellow'; note = 'הציונים שלו כמעט זהים זה לזה. ייתכן שאינו מבחין בין מש"קיות.'; }
+    var done = 0, weeks = [];
+    for (var w = 1; w <= curWeek; w++) { weeks.push(a.w[w] || 0); done += (a.w[w] || 0); }
+    var hasGoal = (cfg.activityRoles || []).indexOf(a.role) !== -1;
+    var goal = hasGoal ? curWeek * cfg.weeklyTarget : null;
+    return { who: k, role: a.role, n: ag.n, avg: ag.avg === null ? null : r1(ag.avg), diff: diff, sd: sd,
+      status: status, cls: cls, note: note, ca: ag.ca, last: ag.last, weeks: weeks, done: done,
+      goal: goal, gap: goal === null ? null : Math.max(goal - done, 0), thisWeek: a.w[curWeek] || 0 };
+  });
+}
+
+/* ---------- חודשים ---------- */
+function monthly(list) {
+  var by = {}, first = null;
+  list.forEach(function (o) {
+    var k = o.d.slice(0, 7);
+    (by[k] || (by[k] = [])).push(o);
+    if (!first || k < first) first = k;
+  });
+  var out = [], cur = D.today.slice(0, 7);
+  if (!first) return out;
+  var y = +first.slice(0, 4), m = +first.slice(5, 7), prev = null, guard = 0;
+  while (guard++ < 60) {
+    var k = y + '-' + ('0' + m).slice(-2);
+    var a = agg(by[k] || []);
+    var row = { key: k, n: a.n, mash: a.mash, avg: a.avg === null ? null : r1(a.avg), low: a.low, ca: a.ca,
+      cov: X.universe.length ? a.mash / X.universe.length : null,
+      delta: (a.avg !== null && prev !== null) ? r1(a.avg - prev) : null };
+    if (a.avg !== null) prev = a.avg;
+    out.push(row);
+    if (k >= cur) break;
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+/* ---------- איכות נתונים ---------- */
+function lev(a, b) {
+  if (a === b) return 0;
+  var m = a.length, n = b.length, i, j, prev = [], cur = [];
+  if (Math.abs(m - n) > 3) return 9;
+  for (j = 0; j <= n; j++) prev[j] = j;
+  for (i = 1; i <= m; i++) {
+    cur = [i];
+    for (j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+function quality() {
+  if (X.quality) return X.quality;
+  var q = { obs: [], unknown: [], roster: [], dups: [], mismatch: [], pid: [] };
+  var REQ = [['mz', 'מחוז'], ['ra', 'רשות'], ['m', 'מש"קית'], ['sc', 'בית ספר'], ['k', 'כיתה'], ['sh', 'שיפט'],
+             ['le', 'שיעור'], ['ro', 'תפקיד המתצפת'], ['ob', 'שם המתצפת'], ['d', 'תאריך']];
+  D.obs.forEach(function (o) {
+    var issues = [], sev = 3;
+    var miss = REQ.filter(function (f) { return !o[f[0]]; }).map(function (f) { return f[1]; });
+    if (miss.length) { issues.push('שדות חסרים: ' + miss.join(', ')); sev = 1; }
+    if (o.sm) { issues.push('חסר ציון — קריטריון שסומן "לא נצפה"'); sev = Math.min(sev, 2); }
+    else if (o.s === null) { issues.push('אין ציון'); sev = Math.min(sev, 2); }
+    if (!o.dn && o.d && daysAgo(o.d) > 3 && daysAgo(o.d) <= 60) { issues.push('לא הסתיימה כבר ' + daysAgo(o.d) + ' ימים — דוח המשוב לא הופק'); sev = Math.min(sev, 2); }
+    var off = [];
+    if (o.sh && (D.lists.shifts || []).length && D.lists.shifts.indexOf(o.sh) === -1) off.push('שיפט "' + o.sh + '"');
+    if (o.ro && (D.lists.roles || []).length && D.lists.roles.indexOf(o.ro) === -1) off.push('תפקיד "' + o.ro + '"');
+    if (o.pl && (D.cfg.plugot || []).length && D.cfg.plugot.indexOf(o.pl) === -1) off.push('פלוגה "' + o.pl + '"');
+    if (o.ra && (D.rashuyot || []).length && D.rashuyot.indexOf(o.ra) === -1) off.push('רשות "' + o.ra + '"');
+    if (off.length) { issues.push('ערך שאינו ברשימה: ' + off.join(', ')); sev = Math.min(sev, 2); }
+    if (!o.bf) issues.push('אין דירוג מתגברת');
+    if (issues.length) q.obs.push({ o: o, sev: sev, text: issues.join(' · ') });
+  });
+  q.obs.sort(function (a, b) { return (a.sev - b.sev) || ((b.o.t || 0) - (a.o.t || 0)); });
+
+  var known = Object.keys(X.people), mefs = {};
+  D.roster.forEach(function (r) { if (r.mf) mefs[r.mf] = 1; });
+  if (D.user.seesAll) {
+    Object.keys(X.byMash).forEach(function (n) {
+      if (X.people[n]) return;
+      var best = '', bd = 3;
+      known.forEach(function (k) { var d = lev(norm(n), norm(k)); if (d < bd) { bd = d; best = k; } });
+      q.unknown.push({ n: n, count: X.byMash[n].length, rows: X.byMash[n].map(function (o) { return o.r; }),
+        hint: mefs[n] ? 'השם מופיע כמפקדת — כנראה נבחר מהרשימה הלא נכונה' : (best ? 'דומה ל"' + best + '" — כנראה שגיאת כתיב' : 'אינה קיימת בקובץ השיוך'),
+        cls: mefs[n] ? 'red' : (best ? 'orange' : 'plain'), best: best });
+    });
+    q.unknown.sort(function (a, b) { return b.count - a.count; });
+
+    D.roster.forEach(function (r) {
+      if (r.sus) q.roster.push({ n: r.n, text: 'שורת שיוך משובשת: הערכים נמצאים בעמודות הלא נכונות (פלוגה "' + r.pl + '", רשות "' + r.ra + '"). למחוק את השורה בגיליון "מיפוי".', cls: 'red' });
+      else if (r.x) q.roster.push({ n: r.n, text: 'חסר: ' + r.x, cls: 'yellow' });
+    });
+
+    var pids = {};
+    D.roster.forEach(function (r) { if (r.pid) { (pids[r.pid] || (pids[r.pid] = {}))[r.n] = 1; } });
+    Object.keys(pids).forEach(function (p) {
+      var ns = Object.keys(pids[p]);
+      if (ns.length > 1) q.pid.push({ pid: p, names: ns });
+    });
+  }
+
+  var seen = {};
+  X.valid.forEach(function (o) {
+    var k = [o.m, o.d, norm(o.ob), o.le, o.sc].join('|');
+    (seen[k] || (seen[k] = [])).push(o);
+  });
+  Object.keys(seen).forEach(function (k) { if (seen[k].length > 1) q.dups.push(seen[k]); });
+
+  X.valid.forEach(function (o) {
+    var p = X.people[o.m];
+    if (!p) return;
+    var bad = [];
+    if (p.mf.length === 1 && o.mf && !same(o.mf, p.mf[0])) bad.push('מפקדת: בתצפית "' + o.mf + '", בשיוך "' + p.mf[0] + '"');
+    if (o.mn && p.mn.length && !p.mn.some(function (x) { return same(x, o.mn); })) bad.push('מנה"ד: בתצפית "' + o.mn + '", בשיוך "' + p.mn.join(' / ') + '"');
+    if (o.ra && p.ra.length && p.ra.indexOf(o.ra) === -1) bad.push('רשות: בתצפית "' + o.ra + '", בשיוך "' + p.ra.join(' / ') + '"');
+    if (bad.length) q.mismatch.push({ o: o, text: bad.join(' · ') });
+  });
+
+  q.total = q.obs.filter(function (x) { return x.sev < 3; }).length + q.unknown.length + q.roster.length + q.dups.length + q.pid.length;
+  X.quality = q;
+  return q;
+}
+
+/* ---------- השלמה אוטומטית בדפדפן (השרת קובע סופית) ---------- */
+function resolveLocal(name, rashut) {
+  var out = { known: false, machzor: '', manhad: '', mefakedet: '', plugah: '', mahoz: '', rashut: rashut || '', rashuyot: [] };
+  var p = X.people[name];
+  if (p) {
+    out.known = true;
+    out.rashuyot = p.ra.slice();
+    var pool = p.rows;
+    if (rashut) { var nr = pool.filter(function (r) { return r.ra === rashut; }); if (nr.length) pool = nr; }
+    var u = function (list, f) { var s = uniq(list.map(function (r) { return r[f]; })); return s.length === 1 ? s[0] : ''; };
+    out.machzor = u(p.rows, 'mc') || u(pool, 'mc');
+    out.mefakedet = u(p.rows, 'mf') || u(pool, 'mf');
+    out.manhad = u(pool, 'mn');
+    if (!out.rashut) out.rashut = u(pool, 'ra');
+    out.mahoz = u(pool, 'mz');
+  }
+  if (out.rashut) {
+    var key = norm(out.rashut);
+    out.plugah = (D.plugahByRashut || {})[key] || '';
+    if (!out.plugah) {
+      Object.keys(D.plugahByRashut || {}).forEach(function (k) { if (norm(k) === key) out.plugah = D.plugahByRashut[k]; });
+    }
+  }
+  if (out.plugah) out.mahoz = out.plugah.indexOf('צפון') === 0 ? 'צפון' : 'דרום';
+  return out;
+}
+
+/* ==========================================================================
+   תרשימים — SVG בלבד, בלי ספריות.
+   סדרה אחת = צבע אחד. ציר אחד לתרשים. לכל סימן יש רמז בריחוף ובמיקוד,
+   ולכל תרשים יש טבלה לצדו עם אותם מספרים.
+   ========================================================================== */
+function niceTicks(lo, hi, n) {
+  var span = hi - lo || 1, step = Math.pow(10, Math.floor(Math.log(span / n) / Math.LN10));
+  var err = span / n / step;
+  if (err >= 7.5) step *= 10; else if (err >= 3.5) step *= 5; else if (err >= 1.5) step *= 2;
+  var out = [], v = Math.ceil(lo / step) * step;
+  for (; v <= hi + 1e-9; v += step) out.push(Math.round(v * 100) / 100);
+  return out;
+}
+
+/* pts: [{x: תווית, y: מספר|null, tip: 'ערך|שורה|שורה'}] */
+function lineChart(pts, o) {
+  o = o || {};
+  var W = o.w || (isWide() ? 640 : 350), H = o.h || (isWide() ? 210 : 190), L = 30, R = 40, T = 14, B = 26;
+  var ys = pts.map(function (p) { return p.y; }).filter(function (y) { return y !== null && y !== undefined; });
+  if (!ys.length) return '<div class="empty">אין עדיין ציונים להצגה</div>';
+  var lo = o.min !== undefined ? o.min : Math.floor((Math.min.apply(null, ys.concat(o.thr !== undefined ? [o.thr] : [])) - 3) / 10) * 10;
+  var hi = o.max !== undefined ? o.max : Math.min(100, Math.ceil((Math.max.apply(null, ys) + 1) / 10) * 10);
+  if (hi <= lo) hi = lo + 10;
+  var n = pts.length, iw = (W - L - R), ih = (H - T - B);
+  var X_ = function (i) { return L + (n === 1 ? iw / 2 : iw * i / (n - 1)); };
+  var Y_ = function (v) { return T + ih - (v - lo) / (hi - lo) * ih; };
+  var s = '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" style="direction:ltr" role="img" aria-label="' + esc(o.label || 'תרשים') + '">';
+  niceTicks(lo, hi, 4).forEach(function (t) {
+    s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y_(t) + '" y2="' + Y_(t) + '"/>' +
+      '<text x="' + (L - 6) + '" y="' + (Y_(t) + 4) + '" text-anchor="end">' + t + '</text>';
+  });
+  if (o.thr !== undefined && o.thr >= lo && o.thr <= hi) {
+    s += '<line class="thr" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y_(o.thr) + '" y2="' + Y_(o.thr) + '"/>' +
+      '<text class="thr-t" x="' + (W - R + 5) + '" y="' + (Y_(o.thr) + 4) + '">סף ' + o.thr + '</text>';
+  }
+  var d = '', pen = false, lastI = -1;
+  pts.forEach(function (p, i) {
+    if (p.y === null || p.y === undefined) { return; }
+    d += (pen ? 'L' : 'M') + X_(i).toFixed(1) + ' ' + Y_(p.y).toFixed(1) + ' ';
+    pen = true; lastI = i;
+  });
+  if (o.area && lastI >= 0) {
+    var firstI = 0; while (pts[firstI].y === null || pts[firstI].y === undefined) firstI++;
+    s += '<path class="area" d="' + d + 'L' + X_(lastI).toFixed(1) + ' ' + (T + ih) + ' L' + X_(firstI).toFixed(1) + ' ' + (T + ih) + ' Z"/>';
+  }
+  s += '<path class="ln" d="' + d + '"/>';
+  var cap = Math.max(3, Math.floor((W - L - R) / 62));
+  var every = n > cap ? Math.ceil(n / cap) : 1;
+  var bw = n === 1 ? iw : iw / (n - 1);
+  pts.forEach(function (p, i) {
+    if (i % every === 0 || i === n - 1) {
+      s += '<text class="lab" x="' + X_(i) + '" y="' + (H - 7) + '" text-anchor="middle">' + esc(p.x) + '</text>';
+    }
+    if (p.y === null || p.y === undefined) return;
+    s += '<rect class="hit" x="' + (X_(i) - Math.max(bw / 2, 12)) + '" y="' + T + '" width="' + Math.max(bw, 24) + '" height="' + ih + '" tabindex="0" data-tip="' + esc(p.tip || (p.y + '|' + p.x)) + '"/>' +
+      '<circle class="pt mk" cx="' + X_(i) + '" cy="' + Y_(p.y) + '" r="4"/>';
+  });
+  if (lastI >= 0 && !(o.thr !== undefined && Math.abs(Y_(pts[lastI].y) - Y_(o.thr)) < 12 && lastI === n - 1)) {
+    s += '<text class="val" x="' + (X_(lastI) + 8) + '" y="' + (Y_(pts[lastI].y) + 4) + '">' + f1(pts[lastI].y) + '</text>';
+  }
+  return s + '</svg></div>';
+}
+
+/* עמודות דקות. pts: [{x, y, tip}] */
+function colChart(pts, o) {
+  o = o || {};
+  var W = o.w || (isWide() ? 640 : 350), H = o.h || 170, L = 30, R = 10, T = 18, B = 26;
+  var max = Math.max.apply(null, pts.map(function (p) { return p.y || 0; }).concat([1]));
+  var ticks = niceTicks(0, max, 3), hi = Math.max(ticks[ticks.length - 1], max);
+  if (hi < max) hi = max;
+  var n = pts.length, iw = W - L - R, ih = H - T - B, slot = iw / n, bw = Math.min(24, slot - 2);
+  var Y_ = function (v) { return T + ih - v / hi * ih; };
+  var s = '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" style="direction:ltr" role="img" aria-label="' + esc(o.label || 'תרשים') + '">';
+  ticks.forEach(function (t) {
+    s += '<line class="' + (t === 0 ? 'axis' : 'grid') + '" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y_(t) + '" y2="' + Y_(t) + '"/>' +
+      '<text x="' + (L - 6) + '" y="' + (Y_(t) + 4) + '" text-anchor="end">' + t + '</text>';
+  });
+  var every = n > (isWide() ? 12 : 6) ? Math.ceil(n / (isWide() ? 10 : 5)) : 1, maxI = 0;
+  pts.forEach(function (p, i) { if ((p.y || 0) > (pts[maxI].y || 0)) maxI = i; });
+  pts.forEach(function (p, i) {
+    var cx = L + slot * i + slot / 2, x = cx - bw / 2, y = Y_(p.y || 0), h = T + ih - y, r = Math.min(4, h, bw / 2);
+    if (i % every === 0 || i === n - 1) s += '<text class="lab" x="' + cx + '" y="' + (H - 7) + '" text-anchor="middle">' + esc(p.x) + '</text>';
+    s += '<rect class="hit" x="' + (L + slot * i) + '" y="' + T + '" width="' + slot + '" height="' + ih + '" tabindex="0" data-tip="' + esc(p.tip || ((p.y || 0) + '|' + p.x)) + '"/>';
+    if (h > 0) {
+      s += '<path class="col mk" d="M' + x + ' ' + (T + ih) + ' V' + (y + r) + ' Q' + x + ' ' + y + ' ' + (x + r) + ' ' + y +
+        ' H' + (x + bw - r) + ' Q' + (x + bw) + ' ' + y + ' ' + (x + bw) + ' ' + (y + r) + ' V' + (T + ih) + ' Z"/>';
+    }
+    if ((i === maxI || i === n - 1) && (p.y || 0) > 0) s += '<text class="val" x="' + cx + '" y="' + (y - 5) + '" text-anchor="middle">' + p.y + '</text>';
+  });
+  return s + '</svg></div>';
+}
+
+/* פסים אופקיים. items: [{l, v, ref, tip}] ; max: קצה הסקאלה */
+function hbars(items, max, o) {
+  o = o || {};
+  var h = '<div class="hb">';
+  items.forEach(function (it) {
+    var w = (it.v === null || it.v === undefined) ? 0 : Math.max(0, Math.min(100, it.v / max * 100));
+    h += '<div class="l">' + esc(it.l) + '</div>' +
+      '<div class="tr" tabindex="0" data-tip="' + esc(it.tip || ((it.v === null || it.v === undefined ? 'אין נתון' : (o.fmt ? o.fmt(it.v) : f2(it.v))) + '|' + it.l)) + '">' +
+      '<div class="fl" style="width:' + w.toFixed(1) + '%"></div>' +
+      ((it.ref !== null && it.ref !== undefined) ? '<div class="rf" style="inset-inline-start:calc(' + Math.min(100, it.ref / max * 100).toFixed(1) + '% - 1px)"></div>' : '') +
+      '</div><div class="v">' + ((it.v === null || it.v === undefined) ? '—' : (o.fmt ? o.fmt(it.v) : f2(it.v))) + '</div>';
+  });
+  return h + '</div>';
+}
+
+/* התפלגות ציונים */
+function histogram(list) {
+  var bins = [['עד 49', 0, 50], ['50–59', 50, 60], ['60–69', 60, 70], ['70–79', 70, 80], ['80–89', 80, 90], ['90–100', 90, 101]];
+  var scored = list.filter(function (o) { return o.s !== null; });
+  if (!scored.length) return '<div class="empty">אין עדיין ציונים להצגה</div>';
+  return colChart(bins.map(function (b) {
+    var n = scored.filter(function (o) { return o.s >= b[1] && o.s < b[2]; }).length;
+    return { x: b[0], y: n, tip: n + ' תצפיות|ציון ' + b[0] + '|' + Math.round(n / scored.length * 100) + '% מהתצפיות' };
+  }), { label: 'התפלגות הציונים', h: 190, w: isWide() ? 500 : 350 });
+}
+
+/* ==========================================================================
+   מסכים: בית, רשימת תצפיות, תצפית בודדת
+   ========================================================================== */
+var DETAIL = {};
+function isWide() { return window.innerWidth >= 820; }
+function fpOf(o) { return (o.m || '') + '|' + (o.d || ''); }
+
+function ph(title, lead, actions) {
+  return '<div class="ph"><div class="ph-t"><h1>' + esc(title) + '</h1>' + (lead ? '<p class="lead">' + lead + '</p>' : '') + '</div>' +
+    (actions ? '<div class="row-btns">' + actions + '</div>' : '') + '</div>';
+}
+function obsChips(o) {
+  var h = '';
+  if (!o.d) h += '<span class="chip red">חסר תאריך</span>';
+  if (!o.dn) h += '<span class="chip yellow">לא הסתיימה</span>';
+  else if (o.fb !== 'כן' && o.age !== undefined && o.age > D.cfg.feedbackDays) h += '<span class="chip ' + (o.age > 21 ? 'red' : 'orange') + '">משוב לא הועבר</span>';
+  if (o.sm) h += '<span class="chip plain">חסר ציון</span>';
+  return h;
+}
+function obsLi(o, hideName) {
+  return '<button type="button" class="li" data-act="go" data-v="obs" data-r="' + o.r + '">' +
+    '<span class="t">' + esc(hideName ? (fmtD(o.d) + (o.sc ? ' · ' + o.sc : '')) : (o.m || '(בלי שם)')) + '</span>' +
+    '<span class="e">' + scHtml(o.s, { miss: o.sm }) + '</span>' +
+    '<span class="m">' + (hideName ? '' : '<span>' + fmtD(o.d) + '</span>') +
+    (o.sc && !hideName ? '<span>' + esc(o.sc) + (o.ra ? ', ' + esc(o.ra) : '') + '</span>' : '') +
+    (o.ob ? '<span>' + esc(o.ob) + '</span>' : '') + obsChips(o) + '</span></button>';
+}
+function scopeLine() {
+  var u = D.user;
+  if (u.role === 'מנהל') return 'כל התצפיות בתוכנית.';
+  if (u.role === 'צופה') return 'כל התצפיות בתוכנית, לצפייה בלבד.';
+  if (u.role === 'מתצפת') return 'מוצגות התצפיות שהזנת.';
+  if (!X.universe.length) return 'התפקיד שלך הוא ' + esc(u.role) + ', אבל לא נמצאו מש"קיות תחת השם "' + esc(u.name || u.scope) + '" בטבלת השיוך. פנה למנהל המערכת.';
+  return X.universe.length + ' מש"קיות באחריותך. מוצגות התצפיות עליהן ואלה שביצעת בעצמך.';
+}
+
+/* ---------- בית ---------- */
+VIEWS.home = function () {
+  var cfg = D.cfg, nat = X.nat, h = '';
+  var first = (D.user.name || D.user.email.split('@')[0]).split(' ')[0];
+  h += ph('שלום, ' + first, scopeLine());
+
+  if (!D.obs.length) {
+    return h + '<div class="sheet"><div class="empty"><b>עוד אין כאן תצפיות</b>' +
+      (D.user.canWrite ? 'התצפית הראשונה שתזין תופיע כאן, עם הציון והמגמה.<br><button type="button" class="btn pri" data-act="newObs">הזן תצפית ראשונה</button>'
+        : 'כשיוזנו תצפיות הן יופיעו כאן.') + '</div></div>';
+  }
+
+  var mon = monthly(X.valid), curM = mon.length ? mon[mon.length - 1] : null, prevM = mon.length > 1 ? mon[mon.length - 2] : null;
+  var crit = X.alerts.filter(function (a) { return a.sev === 1; }).length;
+  var cells = [];
+  cells.push('<div class="cell"><div class="k">תצפיות</div><div class="v">' + X.valid.length + '</div><div class="f">' + (curM ? curM.n : 0) + ' החודש</div></div>');
+  var dlt = (curM && prevM && curM.avg !== null && prevM.avg !== null) ? r1(curM.avg - prevM.avg) : null;
+  cells.push('<div class="cell"><div class="k">ממוצע ציונים</div><div class="v">' + f1(nat.avg) + '</div><div class="f' + (dlt === null ? '' : (dlt < 0 ? ' bad' : (dlt > 0 ? ' good' : ''))) + '">' +
+    (dlt === null ? 'מתוך 100' : (sg(dlt) + ' לעומת החודש הקודם')) + '</div></div>');
+  if (X.universe.length) {
+    cells.push('<button type="button" class="cell" data-act="mashFilter" data-st="never"><div class="k">כיסוי מש"קיות</div><div class="v">' + Math.round(X.seenUni / X.universe.length * 100) + '<small>%</small></div><div class="f">' + X.seenUni + ' מתוך ' + X.universe.length + ' נצפו</div></button>');
+  } else {
+    cells.push('<div class="cell"><div class="k">מש"קיות שנצפו</div><div class="v">' + nat.mash + '</div><div class="f">&nbsp;</div></div>');
+  }
+  cells.push('<button type="button" class="cell" data-act="listFilter" data-st="low"><div class="k">ציונים מתחת ל-' + cfg.low + '</div><div class="v">' + nat.low + '</div><div class="f">' + (nat.cnt ? Math.round(nat.low / nat.cnt * 100) + '% מהתצפיות' : '&nbsp;') + '</div></button>');
+  cells.push('<button type="button" class="cell" data-act="go" data-v="care"><div class="k">דורש טיפול</div><div class="v">' + X.alerts.length + '</div><div class="f' + (crit ? ' bad' : '') + '">' + (crit ? crit + ' קריטיות' : 'אין קריטיות') + '</div></button>');
+  h += '<div class="ledger" style="--n:' + cells.length + '">' + cells.join('') + '</div>';
+
+  if (X.drafts.length) {
+    h += '<div class="callout warn"><div class="x"><b>' + (X.drafts.length === 1 ? 'תצפית אחת שלך לא הסתיימה' : X.drafts.length + ' תצפיות שלך לא הסתיימו') + '</b><br>' +
+      'עד שתצפית מסומנת כהסתיימה, דוח המשוב שלה לא מופק.<div class="row-btns">' +
+      X.drafts.slice(0, 4).map(function (o) { return '<button type="button" class="btn sm" data-act="editObs" data-r="' + o.r + '">' + esc(o.m) + ' · ' + fmtS(o.d) + '</button>'; }).join('') +
+      '</div></div></div>';
+  }
+
+  var pts = mon.map(function (m) { return { x: monthShort(m.key), y: m.avg, tip: f1(m.avg) + '|' + monthLabel(m.key) + '|' + m.n + ' תצפיות' }; });
+  var cnt = mon.map(function (m) { return { x: monthShort(m.key), y: m.n, tip: m.n + ' תצפיות|' + monthLabel(m.key) + '|' + m.mash + ' מש"קיות' }; });
+  var left = '<div class="sheet"><div class="hd"><h2>ממוצע הציונים לפי חודש</h2></div><div class="bd">' + lineChart(pts, { thr: cfg.low, area: true, label: 'ממוצע הציונים לפי חודש' }) + '</div>' +
+    '<div class="hd"><h2>תצפיות בכל חודש</h2></div><div class="bd">' + colChart(cnt, { label: 'מספר התצפיות בכל חודש', h: 150 }) + '</div></div>' +
+    '<div class="sheet"><div class="hd"><h2>ממוצע לפי קריטריון</h2><span class="note">סולם 1 עד 5</span></div><div class="bd">' +
+    hbars(cfg.criteria.map(function (c, i) { return { l: c.label, v: nat.ca[i], tip: f2(nat.ca[i]) + '|' + c.label + '|משקל ' + Math.round(c.weight * 100) + '%' }; }), 5) + '</div></div>';
+
+  var right = '<div class="sheet"><div class="hd"><h2>דורש טיפול</h2><span class="sp"></span>' + (X.alerts.length ? '<button type="button" class="btn ghost sm" data-act="go" data-v="care">כל ה-' + X.alerts.length + '</button>' : '') + '</div>';
+  if (X.alerts.length) {
+    right += '<div class="bd flush"><div class="list">' + X.alerts.slice(0, 4).map(alertLi).join('') + '</div></div>';
+  } else right += '<div class="empty">אין כרגע התראות פתוחות.</div>';
+  right += '</div>';
+  if (X.reco.length) {
+    right += '<div class="sheet"><div class="hd"><h2>את מי לצפות עכשיו</h2><span class="sp"></span><button type="button" class="btn ghost sm" data-act="careTab" data-t="reco">כל ה-' + X.reco.length + '</button></div>' +
+      '<div class="bd flush"><div class="list">' + X.reco.slice(0, 4).map(recoLi).join('') + '</div></div></div>';
+  }
+  right += '<div class="sheet"><div class="hd"><h2>תצפיות אחרונות</h2><span class="sp"></span><button type="button" class="btn ghost sm" data-act="go" data-v="list">לכל התצפיות</button></div>' +
+    '<div class="bd flush"><div class="list">' + X.valid.slice(0, 4).map(function (o) { return obsLi(o); }).join('') + '</div></div></div>';
+  h += '<div class="cols c21"><div>' + left + '</div><div>' + right + '</div></div>';
+  return h;
+};
+function alertLi(a) {
+  return '<button type="button" class="li" data-act="go" data-v="obs" data-r="' + a.o.r + '">' +
+    '<span class="t">' + esc(a.m) + '</span><span class="e"><span class="chip ' + (a.sev === 1 ? 'red' : 'orange') + '">' + (a.sev === 1 ? 'קריטי' : 'לטיפול') + '</span></span>' +
+    '<span class="m"><span>' + esc(a.title) + '</span>' + (a.info ? '<span>' + esc(a.info) + '</span>' : '') + '</span></button>';
+}
+function recoLi(st) {
+  var p = person(st.n);
+  return '<button type="button" class="li" data-act="go" data-v="card" data-n="' + esc(st.n) + '">' +
+    '<span class="t">' + esc(st.n) + '</span><span class="e"><span class="chip ' + st.reco.cls + '">' + st.reco.label + '</span></span>' +
+    '<span class="m"><span>' + esc(p.ra.join(' / ') || '—') + '</span><span>' + (st.last ? 'נצפתה ' + ago(st.last.d) : 'טרם נצפתה') + '</span></span></button>';
+}
+ACT.newObs = function () { go('form', {}); };
+ACT.editObs = function (el) { go('form', { r: el.dataset.r }); };
+ACT.listFilter = function (el) {
+  ST.list = { q: '', ra: '', pl: '', sh: '', st: el.dataset.st || '', when: '', ob: '', limit: 50 };
+  go('list');
+};
+ACT.mashFilter = function (el) {
+  ST.mash = { q: '', ra: '', who: el.dataset.who || '', st: el.dataset.st || '', limit: 60 };
+  go('mash');
+};
+ACT.careTab = function (el) { ST.tab.care = el.dataset.t; go('care'); };
+
+/* ---------- רשימת תצפיות ---------- */
+function listRows() {
+  var F = ST.list, q = norm(F.q).toLowerCase(), cfg = D.cfg;
+  var monthStart = D.today.slice(0, 8) + '01';
+  var rows = X.valid.concat(X.broken);
+  return rows.filter(function (o) {
+    if (q && norm([o.m, o.sc, o.ra, o.ob, o.mf, o.mn, o.le].join(' ')).toLowerCase().indexOf(q) === -1) return false;
+    if (F.ra && o.ra !== F.ra) return false;
+    if (F.pl && o.pl !== F.pl) return false;
+    if (F.sh && o.sh !== F.sh) return false;
+    if (F.ob && o.ob !== F.ob) return false;
+    if (F.st === 'draft' && o.dn) return false;
+    if (F.st === 'low' && !(o.s !== null && o.s < cfg.low)) return false;
+    if (F.st === 'nofb' && (o.fb === 'כן')) return false;
+    if (F.st === 'madmach' && !isMadmach(o)) return false;
+    if (F.st === 'mine' && !isMine(o)) return false;
+    if (F.st === 'noscore' && o.s !== null) return false;
+    if (F.when === 'm' && !(o.d && o.d >= monthStart)) return false;
+    if (F.when === '30' && !(o.d && daysAgo(o.d) <= 30)) return false;
+    if (F.when === 'sem' && semOf(o.d) !== X.sem) return false;
+    return true;
+  });
+}
+function sel(ch, cur, first, opts) {
+  return '<select class="in" data-ch="' + ch + '" aria-label="' + esc(first) + '"><option value="">' + esc(first) + '</option>' +
+    opts.map(function (x) { var v = Array.isArray(x) ? x[0] : x, t = Array.isArray(x) ? x[1] : x; return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
+}
+VIEWS.list = function () {
+  var F = ST.list, rows = listRows();
+  var all = X.valid.concat(X.broken);
+  var h = ph('תצפיות', '', '<button type="button" class="btn no-print" data-act="csv">' + ic('dl') + 'ייצוא לאקסל</button>');
+  h += '<div class="bar no-print"><input class="in grow" type="search" data-inp="listQ" value="' + esc(F.q) + '" placeholder="חיפוש: מש&quot;קית, בית ספר, רשות, מתצפת" aria-label="חיפוש">' +
+    sel('listRa', F.ra, 'כל הרשויות', heSort(uniq(all.map(function (o) { return o.ra; })))) +
+    sel('listSh', F.sh, 'כל השיפטים', heSort(uniq(all.map(function (o) { return o.sh; })))) +
+    sel('listSt', F.st, 'כל המצבים', [['draft', 'לא הסתיימו'], ['low', 'ציון נמוך'], ['nofb', 'משוב לא הועבר'], ['noscore', 'בלי ציון'], ['madmach', 'מדמ"ח'], ['mine', 'שאני ביצעתי']]) +
+    sel('listWhen', F.when, 'כל התקופה', [['m', 'החודש'], ['30', '30 הימים האחרונים'], ['sem', X.sem]]) +
+    ((F.q || F.ra || F.pl || F.sh || F.st || F.when || F.ob) ? '<button type="button" class="btn ghost sm" data-act="listClear">נקה סינון</button>' : '') +
+    '<span class="cnt">' + rows.length + (rows.length === all.length ? '' : ' מתוך ' + all.length) + '</span></div>';
+
+  if (!rows.length) {
+    return h + '<div class="sheet"><div class="empty"><b>אין תצפיות שמתאימות לסינון</b>נסה להרחיב את החיפוש.' +
+      '<br><button type="button" class="btn" data-act="listClear">נקה סינון</button></div></div>';
+  }
+  if (isWide()) {
+    h += '<div class="sheet">' + table('list', [
+      { k: 'd', t: 'תאריך', f: function (o) { return '<span class="num">' + fmtD(o.d) + '</span>'; } },
+      { k: 'm', t: 'מש"קית', f: function (o) { return '<b>' + esc(o.m || '(בלי שם)') + '</b>'; } },
+      { k: 'ra', t: 'רשות' }, { k: 'sc', t: 'בית ספר' }, { k: 'sh', t: 'שיפט' }, { k: 'ob', t: 'מתצפת' },
+      { k: 's', t: 'ציון', n: 1, f: function (o) { return scHtml(o.s, { miss: o.sm }); } },
+      { k: 'fb', t: 'מצב', f: function (o) { return obsChips(o) || (o.fb === 'כן' ? '<span class="chip green">משוב הועבר</span>' : ''); }, v: function (o) { return (o.dn ? '1' : '0') + (o.fb || ''); } }
+    ], rows, { limit: F.limit, row: function (o) { return 'data-act="go" data-v="obs" data-r="' + o.r + '" tabindex="0"'; }, moreAct: 'listMore' }) + '</div>';
+  } else {
+    h += '<div class="sheet"><div class="list">' + rows.slice(0, F.limit).map(function (o) { return obsLi(o); }).join('') + '</div>' +
+      (rows.length > F.limit ? '<div class="more"><button type="button" class="btn sm" data-act="listMore">הצג עוד</button></div>' : '') + '</div>';
+  }
+  return h;
+};
+INP.listQ = function (el) { ST.list.q = el.value; ST.list.limit = 50; render(); var i = $('[data-inp=listQ]'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } };
+CH.listRa = function (el) { ST.list.ra = el.value; ST.list.limit = 50; render(); };
+CH.listSh = function (el) { ST.list.sh = el.value; ST.list.limit = 50; render(); };
+CH.listSt = function (el) { ST.list.st = el.value; ST.list.limit = 50; render(); };
+CH.listWhen = function (el) { ST.list.when = el.value; ST.list.limit = 50; render(); };
+ACT.listClear = function () { ST.list = { q: '', ra: '', pl: '', sh: '', st: '', when: '', ob: '', limit: 50 }; render(); };
+ACT.listMore = function () { ST.list.limit += 60; render(); };
+ACT.csv = function () {
+  var cr = D.cfg.criteria, rows = listRows();
+  var head = ['תאריך', 'מש"קית', 'רשות', 'בית ספר', 'כיתה', 'שיפט', 'שיעור', 'מתצפת', 'תפקיד', 'מנה"ד', 'מפקדת', 'פלוגה', 'מחוז', 'מחזור', 'מתגברת']
+    .concat(cr.map(function (c) { return c.label; })).concat(['ציון', 'משוב הועבר', 'הסתיימה']);
+  var out = [head].concat(rows.map(function (o) {
+    return [fmtD(o.d), o.m, o.ra, o.sc, o.k, o.sh, o.le, o.ob, o.ro, o.mn, o.mf, o.pl, o.mz, o.mc, o.bo]
+      .concat(cr.map(function (c, i) { return o.c[i] === null ? '' : o.c[i]; }))
+      .concat([o.s === null ? (o.sm ? 'חסר ציון' : '') : o.s, o.fb, o.dn ? 'כן' : 'לא']);
+  }));
+  downloadCsv('תצפיות_' + D.today + '.csv', out);
+};
+
+/* ---------- תצפית בודדת ---------- */
+function loadDetail(r) {
+  var o = X.byRow[r];
+  if (!o || DETAIL[r] || DETAIL['_' + r]) return;
+  DETAIL['_' + r] = true;
+  call('apiObservation', Number(r), fpOf(o)).then(function (full) {
+    delete DETAIL['_' + r];
+    DETAIL[r] = full.x;
+    if (ST.view === 'obs' && String(ST.p.r) === String(r)) render();
+  }).catch(function (e) {
+    delete DETAIL['_' + r];
+    DETAIL[r] = { err: cleanErr(e), details: [] };
+    if (ST.view === 'obs' && String(ST.p.r) === String(r)) render();
+  });
+}
+VIEWS.obs = function () {
+  var o = X.byRow[ST.p.r], cfg = D.cfg;
+  if (!o) return '<button type="button" class="back no-print" data-act="go" data-v="list">' + ic('back') + 'לכל התצפיות</button>' +
+    '<div class="sheet"><div class="empty"><b>התצפית לא נמצאה</b>ייתכן שנמחקה, או שאינה בתחום ההרשאה שלך.</div></div>';
+  var x = DETAIL[o.r];
+  if (!x) loadDetail(o.r);
+
+  var h = '<button type="button" class="back no-print" data-act="go" data-v="list">' + ic('back') + 'לכל התצפיות</button>';
+  h += '<div class="print-only" style="font-size:12px;margin-bottom:6px">ניטור תצפיות · משוב תצפית · הופק ' + fmtD(D.today) + '</div>';
+  h += '<div class="ph"><div><button type="button" class="name" style="border:0;background:none;padding:0;text-align:start" data-act="go" data-v="card" data-n="' + esc(o.m) + '">' + esc(o.m || '(בלי שם)') + '</button>' +
+    '<div class="sub" style="margin-top:4px">' + fmtD(o.d) + (o.d ? ' · ' + ago(o.d) : '') + (o.sc ? ' · ' + esc(o.sc) : '') + (o.ra ? ', ' + esc(o.ra) : '') + '</div></div><span class="sp"></span>' +
+    '<div class="row-btns no-print">' +
+    (o.e ? '<button type="button" class="btn pri" data-act="editObs" data-r="' + o.r + '">' + ic('edit') + (o.dn ? 'עריכה' : 'המשך מילוי') + '</button>' : '') +
+    (o.doc ? '<a class="btn" href="' + esc(o.doc) + '" target="_blank" rel="noopener">' + ic('doc') + 'דוח משוב</a>' : '') +
+    '<button type="button" class="btn" data-act="print">' + ic('print') + 'הדפסה</button>' +
+    (D.user.isAdmin ? '<button type="button" class="btn danger" data-act="delObs" data-r="' + o.r + '">' + ic('trash') + 'מחיקה</button>' : '') +
+    '</div></div>';
+
+  if (!o.dn) {
+    h += '<div class="callout warn no-print"><div class="x"><b>התצפית לא הסתיימה</b><br>דוח המשוב יופק רק אחרי שהיא תסומן כהסתיימה.' +
+      (o.e ? '<div class="row-btns"><button type="button" class="btn sm" data-act="editObs" data-r="' + o.r + '">המשך מילוי</button></div>' : '') + '</div></div>';
+  } else if (o.fb !== 'כן') {
+    var late = o.age !== undefined && o.age > cfg.feedbackDays;
+    var can = o.e || (D.user.canWrite && !D.user.seesAll);
+    h += '<div class="callout ' + (late ? (o.age > 21 ? 'bad' : 'warn') : '') + ' no-print"><div class="x"><b>' + (late ? 'המשוב לא הועבר כבר ' + o.age + ' ימים' : 'המשוב עוד לא סומן כהועבר') + '</b>' +
+      (o.fb ? '<br>מצב נוכחי: ' + esc(o.fb) : '') +
+      (can ? '<div class="row-btns"><button type="button" class="btn sm pri" data-act="fbSet" data-r="' + o.r + '" data-val="כן">' + ic('check') + 'המשוב הועבר</button>' +
+        (o.fb !== 'בהמשך' ? '<button type="button" class="btn sm" data-act="fbSet" data-r="' + o.r + '" data-val="בהמשך">יועבר בהמשך</button>' : '') + '</div>' : '') + '</div></div>';
+  }
+
+  var scoreBox = '<div class="sheet"><div class="hd"><h2>ציון</h2><span class="sp"></span>' + scHtml(o.s, { big: 1, miss: o.sm }) + '</div><div class="bd">';
+  cfg.criteria.forEach(function (c, i) {
+    var v = o.c[i], tx = x && x.details ? x.details[i] : '';
+    scoreBox += '<div class="crit-row"><div class="top"><b>' + esc(c.label) + '</b>' + dots(v) + '<span class="val num">' + (typeof v === 'number' ? v : '') + '</span></div>' +
+      (tx && tx !== '-' ? '<div class="tx">' + esc(tx) + '</div>' : '') + '</div>';
+  });
+  scoreBox += '</div></div>';
+
+  var kv = [['רשות', o.ra], ['בית ספר', o.sc], ['כיתה', o.k], ['שיפט', o.sh], ['שיעור', o.le],
+    ['מתצפת', o.ob + (o.ro ? ' (' + o.ro + ')' : '')], ['מנה"ד', o.mn], ['מפקדת', o.mf], ['פלוגה', o.pl], ['מחוז', o.mz], ['מחזור', o.mc],
+    ['מתגברת', o.bo && o.bo !== cfg.noBoost ? o.bo + (o.bf ? ' — ' + o.bf : '') : 'אין']];
+  if (D.user.isAdmin && o.by) kv.push(['הוזן באתר על ידי', o.by]);
+  if (D.user.isAdmin) kv.push(['שורה בגיליון', o.r]);
+  var meta = '<div class="sheet"><div class="hd"><h2>פרטי השיעור</h2></div><div class="bd"><dl class="kv">' +
+    kv.filter(function (p) { return p[1]; }).map(function (p) { return '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>'; }).join('') + '</dl></div></div>';
+
+  var texts = '<div class="sheet"><div class="hd"><h2>משוב מילולי</h2></div><div class="bd">';
+  if (!x) texts += '<div class="spin">טוען…</div>';
+  else if (x.err) texts += '<div class="empty">' + esc(x.err) + '</div>';
+  else {
+    var parts = [['נקודות לשימור', x.keep], ['נקודות לשיפור', x.improve], ['התייחסות אישית', x.personal], ['הערות על המתגברת', x.boostNote]]
+      .filter(function (p) { return p[1] && p[1] !== '-'; });
+    texts += parts.length ? parts.map(function (p) { return '<div class="txt-b"><h3>' + esc(p[0]) + '</h3><div class="txt">' + esc(p[1]) + '</div></div>'; }).join('')
+      : '<div class="muted">לא נכתב משוב מילולי.</div>';
+  }
+  texts += '</div></div>';
+
+  h += '<div class="cols c21"><div>' + scoreBox + texts + '</div><div>' + meta + '</div></div>';
+  return h;
+};
+ACT.print = function () { try { window.print(); } catch (e) { toast('ההדפסה לא נתמכת בדפדפן הזה.', 'err'); } };
+ACT.fbSet = function (el) {
+  var o = X.byRow[el.dataset.r]; if (!o) return;
+  el.disabled = true;
+  call('apiSetFeedback', o.r, fpOf(o), el.dataset.val).then(function (res) {
+    o.fb = res.fb; recompute(); render(); toast('עודכן: ' + res.fb);
+  }).catch(function (e) { el.disabled = false; fail(e); });
+};
+ACT.delObs = function (el) {
+  var o = X.byRow[el.dataset.r]; if (!o) return;
+  confirmBox({ title: 'מחיקת תצפית', text: 'למחוק את התצפית על ' + o.m + ' מתאריך ' + fmtD(o.d) + '?\nאי אפשר לשחזר אותה אחרי המחיקה.', ok: 'מחק תצפית', danger: true })
+    .then(function (yes) {
+      if (!yes) return;
+      call('apiDelete', o.r, fpOf(o)).then(function () {
+        D.obs = D.obs.filter(function (x) { return x.r !== o.r; });
+        delete DETAIL[o.r];
+        recompute(); go('list'); toast('התצפית נמחקה');
+      }).catch(fail);
+    });
+};
+
+/* ==========================================================================
+   טופס התצפית
+   ========================================================================== */
+var FORM = null;
+var DRAFT_KEY = 'obs_draft_v2';
+
+function formBlank() {
+  var n = D.cfg.criteria.length, sc = [], de = [];
+  for (var i = 0; i < n; i++) { sc.push(null); de.push(''); }
+  return { mashakit: '', rashut: '', school: '', klass: '', shift: '', lesson: '', boost: '', boostFn: '', boostNote: '',
+    role: '', observer: '', date: D.today, scores: sc, details: de, keep: '', improve: '', personal: '', feedback: '' };
+}
+function guessRole() {
+  var saved = lsGet('my_role'), roles = D.lists.roles || [];
+  if (saved && roles.indexOf(saved) !== -1) return saved;
+  var mine = X.valid.filter(isMine)[0];
+  if (mine && mine.ro) return mine.ro;
+  var want = { 'מנה"ד': 'מנהד אזורי', 'מפקדת': 'מפקדת', 'מנה"ד מחוזי': 'מנה"ד מחוזי' }[D.user.role];
+  return (want && roles.indexOf(want) !== -1) ? want : '';
+}
+function guessName() {
+  if (D.user.name) return D.user.name;
+  var saved = lsGet('my_name'); if (saved) return saved;
+  var mine = D.obs.filter(function (o) { return o.by === D.user.email && o.ob; })[0];
+  return mine ? mine.ob : '';
+}
+function formInit() {
+  var key = ST.p.r ? 'r' + ST.p.r : 'new' + (ST.p.n || '');
+  if (FORM && FORM.key === key) return;
+  FORM = { key: key, row: null, fp: null, f: formBlank(), open: {}, miss: {}, dirty: false, loading: false, wasDone: false, saving: false };
+  if (ST.p.r) {
+    var o = X.byRow[ST.p.r];
+    if (!o) { FORM.gone = true; return; }
+    FORM.row = o.r; FORM.fp = fpOf(o); FORM.wasDone = o.dn;
+    var f = FORM.f;
+    f.mashakit = o.m; f.rashut = o.ra; f.school = o.sc; f.klass = o.k; f.shift = o.sh; f.lesson = o.le;
+    f.boost = o.bo; f.boostFn = o.bf; f.role = o.ro; f.observer = o.ob; f.date = o.d || D.today; f.feedback = o.fb;
+    f.scores = o.c.slice();
+    var fillTexts = function (x) {
+      f.details = (x.details || []).map(function (t) { return t === '-' ? '' : t; });
+      f.keep = x.keep || ''; f.improve = x.improve || '';
+      f.personal = x.personal === '-' ? '' : (x.personal || ''); f.boostNote = x.boostNote || '';
+      f.details.forEach(function (t, i) { if (t) FORM.open[i] = true; });
+    };
+    if (DETAIL[o.r] && !DETAIL[o.r].err) fillTexts(DETAIL[o.r]);
+    else {
+      FORM.loading = true;
+      call('apiObservation', o.r, FORM.fp).then(function (full) {
+        DETAIL[o.r] = full.x;
+        if (FORM && FORM.key === key) { fillTexts(full.x); FORM.loading = false; if (ST.view === 'form') render(); }
+      }).catch(function (e) { if (FORM && FORM.key === key) { FORM.loading = false; FORM.loadErr = cleanErr(e); if (ST.view === 'form') render(); } });
+    }
+  } else {
+    FORM.f.role = guessRole();
+    FORM.f.observer = guessName();
+    if (ST.p.n) formSetMash(ST.p.n, true);
+    var d = lsGet(DRAFT_KEY);
+    if (d && d.f && !ST.p.n && (d.f.mashakit || d.f.keep || d.f.improve)) FORM.offer = d;
+  }
+}
+function formSetMash(name, quiet) {
+  var f = FORM.f;
+  f.mashakit = name;
+  var res = resolveLocal(name, '');
+  if (res.rashuyot.length === 1) { if (f.rashut !== res.rashuyot[0]) { f.rashut = res.rashuyot[0]; f.school = ''; } }
+  else if (res.rashuyot.length > 1 && res.rashuyot.indexOf(f.rashut) === -1) { f.rashut = ''; f.school = ''; }
+  if (!quiet) formTouch();
+}
+var _draftT = null;
+function formTouch() {
+  if (!FORM) return;
+  FORM.dirty = true;
+  clearTimeout(_draftT);
+  _draftT = setTimeout(function () {
+    if (FORM && FORM.dirty) lsSet(DRAFT_KEY, { f: FORM.f, row: FORM.row, fp: FORM.fp, t: Date.now() });
+  }, 500);
+}
+function formLeave() {
+  if (FORM && FORM.dirty && !FORM.saved) {
+    lsSet(DRAFT_KEY, { f: FORM.f, row: FORM.row, fp: FORM.fp, t: Date.now() });
+    toast('מה שמילאת נשמר במכשיר הזה. אפשר להמשיך אחר כך.');
+  }
+  FORM = null;
+}
+function calcScore(sc) {
+  var sum = 0, cr = D.cfg.criteria;
+  if (sc.indexOf('-') !== -1) return { miss: true, v: null, n: sc.filter(function (x) { return x !== null; }).length };
+  var n = 0;
+  for (var i = 0; i < cr.length; i++) { if (typeof sc[i] === 'number') { sum += sc[i] / 5 * cr[i].weight; n++; } }
+  return { v: n === cr.length ? Math.round(sum * 100) : null, n: n, miss: false };
+}
+function pickBtn(act, val, placeholder, cls) {
+  return '<button type="button" class="in' + (cls || '') + '" data-act="' + act + '"><span class="v' + (val ? '' : ' ph-t') + '">' + esc(val || placeholder) + '</span>' + ic('down') + '</button>';
+}
+function scoreBar() {
+  var s = calcScore(FORM.f.scores), n = D.cfg.criteria.length;
+  if (s.miss) return '<b>חסר ציון</b><span>קריטריון שסומן "לא נצפה" מבטל את הציון המשוקלל</span>';
+  if (s.v === null) return '<b>—</b><span>מולאו ' + s.n + ' מתוך ' + n + ' קריטריונים</span>';
+  return '<b style="color:' + (s.v < D.cfg.low ? 'var(--red)' : 'inherit') + '">' + s.v + '</b><span>ציון משוקלל' + (s.v < D.cfg.low ? ' · מתחת לסף ' + D.cfg.low : '') + '</span>';
+}
+
+VIEWS.form = function () {
+  formInit();
+  if (!D.user.canWrite) return '<div class="sheet"><div class="empty"><b>אין הרשאת הזנה</b>התפקיד שלך מאפשר צפייה בלבד.</div></div>';
+  if (FORM.gone) return '<div class="sheet"><div class="empty"><b>התצפית לא נמצאה</b><button type="button" class="btn" data-act="go" data-v="list">לכל התצפיות</button></div></div>';
+  var f = FORM.f, cfg = D.cfg, L = D.lists, edit = !!FORM.row, M = FORM.miss;
+  var h = '<div class="form">';
+  h += '<button type="button" class="back" data-act="go" data-v="' + (edit ? 'obs' : 'home') + '"' + (edit ? ' data-r="' + FORM.row + '"' : '') + '>' + ic('back') + (edit ? 'חזרה לתצפית' : 'חזרה') + '</button>';
+  h += ph(edit ? 'עריכת תצפית' : 'תצפית חדשה', edit ? esc(f.mashakit) + ' · ' + fmtD(f.date) : '');
+
+  if (FORM.offer) {
+    var d = FORM.offer;
+    h += '<div class="callout"><div class="x"><b>יש טיוטה שלא נשמרה</b><br>' + esc(d.f.mashakit || 'בלי שם') + ' · נכתבה ' + esc(new Date(d.t).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) +
+      '<div class="row-btns"><button type="button" class="btn sm pri" data-act="draftUse">המשך ממנה</button><button type="button" class="btn sm" data-act="draftDrop">מחק אותה</button></div></div></div>';
+  }
+  if (FORM.loading) h += '<div class="callout"><div class="x">טוען את המשוב המילולי של התצפית…</div></div>';
+  if (FORM.loadErr) h += '<div class="callout bad"><div class="x"><b>המשוב המילולי לא נטען</b><br>' + esc(FORM.loadErr) + '<br>אם תשמור עכשיו, הטקסטים הקיימים יוחלפו בריקים.</div></div>';
+
+  /* 1 — מי נצפתה */
+  var res = resolveLocal(f.mashakit, f.rashut);
+  h += '<div class="sheet"><span class="step" aria-hidden="true">1</span><div class="hd"><h2>מי נצפתה</h2></div><div class="bd">';
+  h += '<div class="fld"><span class="lb">מש"קית</span>' + pickBtn('pkMash', f.mashakit, 'בחר מש"קית', M.mashakit ? ' err' : '') + '</div>';
+  h += '<div class="g2"><div class="fld"><span class="lb">רשות</span>' + pickBtn('pkRashut', f.rashut, res.rashuyot.length > 1 ? 'היא משובצת בכמה רשויות — בחר' : 'בחר רשות', M.rashut ? ' err' : '') + '</div>' +
+    '<div class="fld"><span class="lb">בית ספר</span>' + pickBtn('pkSchool', f.school, f.rashut ? 'בחר בית ספר' : 'בחר רשות קודם', M.school ? ' err' : '') + '</div></div>';
+  if (f.mashakit) {
+    if (!res.known) {
+      h += '<div class="auto warn"><div class="h">לא נמצאה בקובץ השיוך</div>השם "' + esc(f.mashakit) + '" אינו מופיע בטבלת המש"קיות, ולכן המפקדת, המנה"ד והמחזור לא יושלמו. אפשר לשמור בכל זאת; מנהל המערכת יראה את זה בבקרת הנתונים.</div>';
+    } else {
+      var auto = [['מנה"ד', res.manhad], ['מפקדת', res.mefakedet], ['מחזור', res.machzor], ['פלוגה', res.plugah], ['מחוז', res.mahoz]].filter(function (p) { return p[1]; });
+      if (auto.length) h += '<div class="auto"><div class="h">הושלם אוטומטית מקובץ השיוך</div><div class="g">' +
+        auto.map(function (p) { return '<div><span>' + esc(p[0]) + ': </span><b>' + esc(p[1]) + '</b></div>'; }).join('') + '</div></div>';
+    }
+  }
+  h += '</div></div>';
+
+  /* 2 — השיעור */
+  var hasBoost = f.boost && f.boost !== cfg.noBoost;
+  h += '<div class="sheet"><span class="step" aria-hidden="true">2</span><div class="hd"><h2>השיעור</h2></div><div class="bd"><div class="g2">';
+  h += '<div class="fld"><label for="fDate">תאריך</label><input id="fDate" class="in' + (M.date ? ' err' : '') + '" type="date" data-f="date" value="' + esc(f.date) + '" max="' + esc(D.today) + '"></div>';
+  h += '<div class="fld"><label for="fKlass">כיתה</label><input id="fKlass" class="in' + (M.klass ? ' err' : '') + '" data-f="klass" value="' + esc(f.klass) + '" placeholder="לדוגמה ז\'2" autocomplete="off"></div>';
+  h += '<div class="fld"><label for="fShift">שיפט</label><select id="fShift" class="in' + (M.shift ? ' err' : '') + '" data-ch="fShift"><option value="">בחר שיפט</option>' +
+    uniq((L.shifts || []).concat(f.shift ? [f.shift] : [])).map(function (s) { return '<option' + (s === f.shift ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></div>';
+  h += '<div class="fld"><span class="lb">שיעור</span>' + pickBtn('pkLesson', f.lesson, f.shift ? 'בחר שיעור' : 'בחר שיפט קודם', M.lesson ? ' err' : '') + '</div>';
+  h += '</div><div class="fld"><span class="lb">מש"קית מתגברת <span class="opt">אם הייתה בשיעור</span></span>' + pickBtn('pkBoost', f.boost === cfg.noBoost ? 'אין מתגברת' : f.boost, 'אין מתגברת') + '</div>';
+  if (hasBoost) {
+    h += '<div class="fld"><span class="lb">תפקוד המתגברת</span><div class="seg" role="group">' +
+      cfg.boostFn.filter(function (x) { return x !== cfg.noBoostFn; }).map(function (x) { return '<button type="button" class="' + (f.boostFn === x ? 'on' : '') + '" data-act="fSeg" data-k="boostFn" data-val="' + esc(x) + '" aria-pressed="' + (f.boostFn === x) + '">' + esc(x) + '</button>'; }).join('') + '</div></div>' +
+      '<div class="fld"><label for="fBn">הערות על המתגברת <span class="opt">רשות</span></label><textarea id="fBn" class="in" data-f="boostNote">' + esc(f.boostNote) + '</textarea></div>';
+  }
+  h += '</div></div>';
+
+  /* 3 — המתצפת */
+  h += '<div class="sheet"><span class="step" aria-hidden="true">3</span><div class="hd"><h2>מי צפה</h2></div><div class="bd"><div class="g2">';
+  h += '<div class="fld"><label for="fRole">התפקיד שלך</label><select id="fRole" class="in' + (M.role ? ' err' : '') + '" data-ch="fRole"><option value="">בחר תפקיד</option>' +
+    uniq((L.roles || []).concat(f.role ? [f.role] : [])).map(function (s) { return '<option' + (s === f.role ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></div>';
+  h += '<div class="fld"><span class="lb">השם שלך</span>' + pickBtn('pkObserver', f.observer, 'בחר שם', M.observer ? ' err' : '') + '</div>';
+  h += '</div></div></div>';
+
+  /* 4 — ציונים */
+  h += '<div class="sheet"><span class="step" aria-hidden="true">4</span><div class="hd"><h2>ציונים</h2><span class="note">1 הנמוך, 5 הגבוה</span></div><div class="bd">';
+  cfg.criteria.forEach(function (c, i) {
+    var v = f.scores[i], open = FORM.open[i] || f.details[i];
+    var t = c.title || c.label, par = t.indexOf('('), main = par > 0 ? t.slice(0, par).trim() : t, sub = par > 0 ? t.slice(par).replace(/^\(|\)$/g, '').trim() : '';
+    h += '<div class="rub' + (M.scores && v === null ? ' miss' : '') + '" data-rub="' + i + '"><div class="q">' + esc(main) + '</div>' +
+      '<div class="w">' + (sub ? esc(sub) + ' · ' : '') + 'משקל ' + Math.round(c.weight * 100) + '%</div>' +
+      '<div class="rate" role="group" aria-label="' + esc(c.label) + '">';
+    for (var k = 1; k <= 5; k++) h += '<button type="button" class="' + (v === k ? 'on r' + k : '') + '" data-act="fRate" data-i="' + i + '" data-val="' + k + '" aria-pressed="' + (v === k) + '">' + k + '</button>';
+    h += '<button type="button" class="na' + (v === '-' ? ' on' : '') + '" data-act="fRate" data-i="' + i + '" data-val="-" aria-pressed="' + (v === '-') + '">לא נצפה</button></div>';
+    h += open ? '<textarea class="in" data-d="' + i + '" placeholder="מה ראית? דוגמה מהשיעור" aria-label="פירוט: ' + esc(c.label) + '">' + esc(f.details[i]) + '</textarea>'
+      : '<div class="more-d"><button type="button" data-act="fOpen" data-i="' + i + '">הוסף פירוט</button></div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  /* 5 — סיכום */
+  h += '<div class="sheet"><span class="step" aria-hidden="true">5</span><div class="hd"><h2>סיכום ומשוב</h2></div><div class="bd">';
+  h += '<div class="fld"><label for="fKeep">נקודות לשימור</label><textarea id="fKeep" class="in' + (M.keep ? ' err' : '') + '" data-f="keep" placeholder="מה עבד טוב ושווה שתמשיך לעשות">' + esc(f.keep) + '</textarea></div>';
+  h += '<div class="fld"><label for="fImp">נקודות לשיפור</label><textarea id="fImp" class="in' + (M.improve ? ' err' : '') + '" data-f="improve" placeholder="מה כדאי לעשות אחרת בשיעור הבא">' + esc(f.improve) + '</textarea></div>';
+  h += '<div class="fld"><label for="fPers">התייחסות אישית <span class="opt">רשות</span></label><textarea id="fPers" class="in" data-f="personal">' + esc(f.personal) + '</textarea></div>';
+  h += '<div class="fld"><span class="lb">המשוב הועבר למש"קית?</span><div class="seg" role="group">' +
+    cfg.feedback.map(function (x) { return '<button type="button" class="' + (f.feedback === x ? 'on' : '') + '" data-act="fSeg" data-k="feedback" data-val="' + esc(x) + '" aria-pressed="' + (f.feedback === x) + '">' + esc(x) + '</button>'; }).join('') + '</div></div>';
+  h += '</div></div>';
+
+  h += '<div class="savebar"><div class="s" id="fScore">' + scoreBar() + '</div>' +
+    (FORM.wasDone
+      ? '<button type="button" class="btn pri" data-act="fSave" data-fin="1"' + (FORM.saving ? ' disabled' : '') + '>שמור שינויים</button>'
+      : '<button type="button" class="btn" data-act="fSave" data-fin="0"' + (FORM.saving ? ' disabled' : '') + '>שמור טיוטה</button>' +
+        '<button type="button" class="btn pri" data-act="fSave" data-fin="1"' + (FORM.saving ? ' disabled' : '') + '>סיים תצפית</button>') +
+    '</div></div>';
+  return h;
+};
+
+/* שדות טקסט: מעדכנים את המצב בלי לצייר מחדש, כדי לא לאבד מיקוד */
+document.addEventListener('input', function (ev) {
+  var el = ev.target;
+  if (!FORM || ST.view !== 'form' || !el.dataset) return;
+  if (el.dataset.f) { FORM.f[el.dataset.f] = el.value; if (FORM.miss[el.dataset.f] && el.value.trim()) { delete FORM.miss[el.dataset.f]; el.classList.remove('err'); } formTouch(); }
+  else if (el.dataset.d !== undefined) { FORM.f.details[+el.dataset.d] = el.value; formTouch(); }
+});
+CH.fShift = function (el) {
+  var f = FORM.f;
+  if (f.shift !== el.value) { f.shift = el.value; f.lesson = ''; }
+  delete FORM.miss.shift; formTouch(); render();
+};
+CH.fRole = function (el) {
+  var f = FORM.f, list = (D.lists.observers || {})[el.value] || [];
+  f.role = el.value;
+  if (f.observer && list.length && list.indexOf(f.observer) === -1 && !same(f.observer, D.user.name)) f.observer = '';
+  delete FORM.miss.role; formTouch(); render();
+};
+ACT.fSeg = function (el) {
+  var k = el.dataset.k, v = el.dataset.val;
+  FORM.f[k] = FORM.f[k] === v ? '' : v;
+  formTouch();
+  $$('button', el.parentNode).forEach(function (b) { var on = FORM.f[k] === b.dataset.val; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+};
+ACT.fRate = function (el) {
+  var i = +el.dataset.i, raw = el.dataset.val, v = raw === '-' ? '-' : +raw;
+  FORM.f.scores[i] = FORM.f.scores[i] === v ? null : v;
+  formTouch();
+  var box = el.closest('.rub'), cur = FORM.f.scores[i];
+  $$('.rate button', box).forEach(function (b) {
+    var bv = b.dataset.val === '-' ? '-' : +b.dataset.val, on = cur === bv;
+    b.className = (b.dataset.val === '-' ? 'na' : '') + (on ? ' on' + (bv === '-' ? '' : ' r' + bv) : '');
+    b.setAttribute('aria-pressed', on);
+  });
+  if (cur !== null) box.classList.remove('miss');
+  $('#fScore').innerHTML = scoreBar();
+};
+ACT.fOpen = function (el) {
+  var i = +el.dataset.i; FORM.open[i] = true; render();
+  var t = $('[data-d="' + i + '"]'); if (t) t.focus();
+};
+ACT.draftUse = function () {
+  var d = FORM.offer; if (!d) return;
+  var blank = formBlank();
+  Object.keys(blank).forEach(function (k) { if (d.f[k] !== undefined) blank[k] = d.f[k]; });
+  if (d.row && X.byRow[d.row] && fpOf(X.byRow[d.row]) === d.fp) { FORM.row = d.row; FORM.fp = d.fp; FORM.wasDone = X.byRow[d.row].dn; FORM.key = 'r' + d.row; ST.p = { r: d.row }; }
+  FORM.f = blank; FORM.offer = null; FORM.dirty = true;
+  blank.details.forEach(function (t, i) { if (t) FORM.open[i] = true; });
+  render();
+};
+ACT.draftDrop = function () { lsDel(DRAFT_KEY); FORM.offer = null; render(); };
+
+ACT.pkMash = function () {
+  var items = [], scoped = X.scoped && X.universe.length;
+  if (scoped) X.universe.forEach(function (n) { items.push({ v: n, t: n, s: X.people[n].ra.join(' / '), g: 'באחריותך' }); });
+  heSort(Object.keys(X.people)).forEach(function (n) {
+    if (scoped && X.inUni[n]) return;
+    items.push({ v: n, t: n, s: X.people[n].ra.join(' / '), g: scoped ? 'שאר המש"קיות' : '' });
+  });
+  pick({ title: 'בחירת מש"קית', ph: 'הקלד שם או רשות', items: items, cur: FORM.f.mashakit, custom: true, customLabel: 'מש"קית שאינה ברשימה:' })
+    .then(function (v) { if (v === null) return; formSetMash(v); delete FORM.miss.mashakit; render(); });
+};
+ACT.pkRashut = function () {
+  var p = X.people[FORM.f.mashakit], hers = p ? p.ra : [], items = [];
+  hers.forEach(function (r) { items.push({ v: r, t: r, g: 'הרשויות שלה' }); });
+  (D.rashuyot || []).forEach(function (r) { if (hers.indexOf(r) === -1) items.push({ v: r, t: r, g: hers.length ? 'רשויות אחרות' : '' }); });
+  pick({ title: 'בחירת רשות', items: items, cur: FORM.f.rashut, custom: true, customLabel: 'רשות שאינה ברשימה:' }).then(function (v) {
+    if (v === null) return;
+    if (FORM.f.rashut !== v) { FORM.f.rashut = v; FORM.f.school = ''; }
+    delete FORM.miss.rashut; formTouch(); render();
+  });
+};
+ACT.pkSchool = function () {
+  if (!FORM.f.rashut) { toast('בחר רשות קודם — רשימת בתי הספר תלויה בה.'); return; }
+  var list = (D.schools || {})[FORM.f.rashut] || [];
+  pick({ title: 'בית ספר ב' + FORM.f.rashut, items: list.map(function (s) { return { v: s, t: s }; }), cur: FORM.f.school, custom: true, customLabel: 'בית ספר שאינו ברשימה:' })
+    .then(function (v) { if (v === null) return; FORM.f.school = v; delete FORM.miss.school; formTouch(); render(); });
+};
+ACT.pkLesson = function () {
+  if (!FORM.f.shift) { toast('בחר שיפט קודם — רשימת השיעורים תלויה בו.'); return; }
+  var list = (D.lists.lessons || {})[FORM.f.shift] || [];
+  pick({ title: 'שיעור ב-' + FORM.f.shift, items: list.map(function (s) { return { v: s, t: s }; }), cur: FORM.f.lesson, custom: true, customLabel: 'שיעור שאינו ברשימה:' })
+    .then(function (v) { if (v === null) return; FORM.f.lesson = v; delete FORM.miss.lesson; formTouch(); render(); });
+};
+ACT.pkBoost = function () {
+  var cfg = D.cfg, items = [{ v: cfg.noBoost, t: 'אין מתגברת' }];
+  heSort(Object.keys(X.people)).forEach(function (n) { if (n !== FORM.f.mashakit) items.push({ v: n, t: n, s: X.people[n].ra.join(' / ') }); });
+  pick({ title: 'מש"קית מתגברת', items: items, cur: FORM.f.boost, custom: true, customLabel: 'שם שאינו ברשימה:' }).then(function (v) {
+    if (v === null) return;
+    FORM.f.boost = v;
+    if (v === cfg.noBoost) { FORM.f.boostFn = cfg.noBoostFn; FORM.f.boostNote = ''; }
+    else if (FORM.f.boostFn === cfg.noBoostFn) FORM.f.boostFn = '';
+    formTouch(); render();
+  });
+};
+ACT.pkObserver = function () {
+  var by = D.lists.observers || {}, list = by[FORM.f.role] || [], items = [];
+  if (D.user.name) items.push({ v: D.user.name, t: D.user.name, s: 'את/ה', g: list.length ? 'אני' : '' });
+  list.forEach(function (n) { if (!same(n, D.user.name)) items.push({ v: n, t: n, g: FORM.f.role }); });
+  if (!list.length) {
+    var all = [];
+    Object.keys(by).forEach(function (k) { all = all.concat(by[k]); });
+    heSort(uniq(all)).forEach(function (n) { if (!same(n, D.user.name)) items.push({ v: n, t: n }); });
+  }
+  pick({ title: 'שם המתצפת', items: items, cur: FORM.f.observer, custom: true, customLabel: 'שם שאינו ברשימה:' })
+    .then(function (v) { if (v === null) return; FORM.f.observer = v; delete FORM.miss.observer; formTouch(); render(); });
+};
+
+ACT.fSave = function (el) {
+  if (FORM.saving || FORM.loading) return;
+  var finish = el.dataset.fin === '1', f = FORM.f, miss = {};
+  if (!f.mashakit) miss.mashakit = 1;
+  if (!f.date) miss.date = 1;
+  if (finish) {
+    (D.cfg.finishRequired || []).forEach(function (k) {
+      if (k === 'scores') { if (f.scores.indexOf(null) !== -1) miss.scores = 1; }
+      else if (!String(f[k] || '').trim()) miss[k] = 1;
+    });
+  }
+  FORM.miss = miss;
+  var keys = Object.keys(miss);
+  if (keys.length) {
+    render();
+    var names = keys.map(function (k) { return (D.cfg.labels || {})[k] || k; });
+    toast((finish ? 'כדי לסיים חסר: ' : 'חסר: ') + names.join(', '), 'err');
+    var firstErr = $('.form .err, .form .rub.miss');
+    if (firstErr) firstErr.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+  formSend(finish, false);
+};
+function formSend(finish, force) {
+  FORM.saving = true;
+  $$('.savebar .btn').forEach(function (b) { b.disabled = true; });
+  var payload = { row: FORM.row, fp: FORM.fp, finish: finish, force: force, f: FORM.f };
+  call('apiSave', payload).then(function (res) {
+    if (res && res.dup) {
+      FORM.saving = false; render();
+      return confirmBox({ title: 'תצפית זהה כבר קיימת', text: 'כבר נשמרה תצפית על ' + FORM.f.mashakit + ' באותו תאריך, באותו שיעור ועל ידי אותו מתצפת.\nלשמור תצפית נוספת בכל זאת?', ok: 'שמור בכל זאת', cancel: 'פתח את הקיימת' })
+        .then(function (yes) { if (yes) formSend(finish, true); else { FORM.saved = true; go('obs', { r: res.dup }); } });
+    }
+    var o = res.obs;
+    DETAIL[o.r] = o.x; delete o.x;
+    var at = -1;
+    D.obs.forEach(function (x, i) { if (x.r === o.r) at = i; });
+    if (at >= 0) D.obs[at] = o; else D.obs.push(o);
+    if (FORM.f.observer && !D.user.name) lsSet('my_name', FORM.f.observer);
+    if (FORM.f.role) lsSet('my_role', FORM.f.role);
+    lsDel(DRAFT_KEY);
+    FORM.saved = true;
+    recompute();
+    go('obs', { r: o.r });
+    toast(o.dn ? (res.isNew || !payload.row ? 'התצפית נשמרה והסתיימה' : 'השינויים נשמרו') : 'הטיוטה נשמרה');
+  }).catch(function (e) {
+    FORM.saving = false;
+    $$('.savebar .btn').forEach(function (b) { b.disabled = false; });
+    fail(e);
+  });
+}
+
+/* ==========================================================================
+   מסכים: מש"קיות, כרטיס מש"קית
+   ========================================================================== */
+function mashNames() {
+  return X.universe.length ? X.universe : heSort(Object.keys(X.byMash));
+}
+function mashRows() {
+  var F = ST.mash, q = norm(F.q).toLowerCase();
+  return mashNames().map(function (n) { return X.ms[n]; }).filter(function (st) {
+    var p = person(st.n);
+    if (q && norm(st.n + ' ' + p.ra.join(' ') + ' ' + p.mf.join(' ') + ' ' + p.mn.join(' ')).toLowerCase().indexOf(q) === -1) return false;
+    if (F.ra && p.ra.indexOf(F.ra) === -1) return false;
+    if (F.who && p.mn.indexOf(F.who) === -1 && p.mf.indexOf(F.who) === -1) return false;
+    if (F.st && st.status !== F.st) return false;
+    return true;
+  });
+}
+VIEWS.mash = function () {
+  var F = ST.mash, names = mashNames(), rows = mashRows(), cfg = D.cfg;
+  var allP = names.map(person);
+  var h = ph('מש"קיות', X.universe.length ? '' : 'מוצגות המש"קיות שצפית בהן.');
+  var whoList = heSort(uniq([].concat.apply([], allP.map(function (p) { return p.mn.concat(p.mf); }))));
+  h += '<div class="bar no-print"><input class="in grow" type="search" data-inp="mashQ" value="' + esc(F.q) + '" placeholder="חיפוש: שם, רשות, מפקדת" aria-label="חיפוש">' +
+    sel('mashRa', F.ra, 'כל הרשויות', heSort(uniq([].concat.apply([], allP.map(function (p) { return p.ra; }))))) +
+    (whoList.length > 1 ? sel('mashWho', F.who, 'כל המנה"דים והמפקדות', whoList) : '') +
+    sel('mashSt', F.st, 'כל המצבים', [['never', 'טרם נצפו'], ['risk', 'בסיכון'], ['below', 'מתחת ליעד'], ['ok', 'תקין']]) +
+    ((F.q || F.ra || F.who || F.st) ? '<button type="button" class="btn ghost sm" data-act="mashClear">נקה סינון</button>' : '') +
+    '<span class="cnt">' + rows.length + (rows.length === names.length ? '' : ' מתוך ' + names.length) + '</span></div>';
+  if (!names.length) return h + '<div class="sheet"><div class="empty"><b>עוד אין כאן מש"קיות</b>אחרי שתזין תצפית, המש"קית תופיע כאן עם ההיסטוריה שלה.</div></div>';
+  if (!rows.length) return h + '<div class="sheet"><div class="empty"><b>אין מש"קיות שמתאימות לסינון</b><button type="button" class="btn" data-act="mashClear">נקה סינון</button></div></div>';
+
+  if (isWide()) {
+    h += '<div class="sheet">' + table('mash', [
+      { k: 'n', t: 'מש"קית', f: function (s) { return '<b>' + esc(s.n) + '</b>'; } },
+      { k: 'ra', t: 'רשות', f: function (s) { return esc(person(s.n).ra.join(' / ') || '—'); }, v: function (s) { return person(s.n).ra.join(' '); } },
+      { k: 'mf', t: 'מפקדת', f: function (s) { return esc(person(s.n).mf.join(' / ') || '—'); }, v: function (s) { return person(s.n).mf.join(' '); } },
+      { k: 'mn', t: 'מנה"ד', f: function (s) { return esc(person(s.n).mn.join(' / ') || '—'); }, v: function (s) { return person(s.n).mn.join(' '); } },
+      { k: 'total', t: 'תצפיות', n: 1 },
+      { k: 'semN', t: X.sem, n: 1, f: function (s) { return s.semN + ' מתוך ' + cfg.target; } },
+      { k: 'avg', t: 'ממוצע', n: 1, f: function (s) { return scHtml(s.avg === null ? null : r1(s.avg)); } },
+      { k: 'age', t: 'נצפתה לאחרונה', f: function (s) { return s.last ? '<span class="num">' + fmtD(s.last.d) + '</span> <span class="muted">' + ago(s.last.d) + '</span>' : '<span class="muted">—</span>'; } },
+      { k: 'status', t: 'מצב', f: statusChip, v: function (s) { return { never: 0, risk: 1, below: 2, ok: 3 }[s.status]; } }
+    ], rows, { limit: F.limit, row: function (s) { return 'data-act="go" data-v="card" data-n="' + esc(s.n) + '" tabindex="0"'; }, moreAct: 'mashMore' }) + '</div>';
+  } else {
+    h += '<div class="sheet"><div class="list">' + rows.slice(0, F.limit).map(function (s) {
+      var p = person(s.n);
+      return '<button type="button" class="li" data-act="go" data-v="card" data-n="' + esc(s.n) + '"><span class="t">' + esc(s.n) + '</span>' +
+        '<span class="e">' + (s.total ? scHtml(s.avg === null ? null : r1(s.avg)) : '') + '</span>' +
+        '<span class="m"><span>' + esc(p.ra.join(' / ') || '—') + '</span><span>' + s.total + ' תצפיות</span>' + statusChip(s) + '</span></button>';
+    }).join('') + '</div>' + (rows.length > F.limit ? '<div class="more"><button type="button" class="btn sm" data-act="mashMore">הצג עוד</button></div>' : '') + '</div>';
+  }
+  return h;
+};
+INP.mashQ = function (el) { ST.mash.q = el.value; ST.mash.limit = 60; render(); var i = $('[data-inp=mashQ]'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } };
+CH.mashRa = function (el) { ST.mash.ra = el.value; render(); };
+CH.mashWho = function (el) { ST.mash.who = el.value; render(); };
+CH.mashSt = function (el) { ST.mash.st = el.value; render(); };
+ACT.mashClear = function () { ST.mash = { q: '', ra: '', who: '', st: '', limit: 60 }; render(); };
+ACT.mashMore = function () { ST.mash.limit += 60; render(); };
+
+/* ---------- כרטיס מש"קית ---------- */
+VIEWS.card = function () {
+  var name = ST.p.n, cfg = D.cfg;
+  var st = X.ms[name] || (X.people[name] ? mashStats(name) : null);
+  var back = '<button type="button" class="back no-print" data-act="go" data-v="mash">' + ic('back') + 'לכל המש"קיות</button>';
+  if (!st) return back + '<div class="sheet"><div class="empty"><b>לא נמצאה מש"קית בשם הזה</b>ייתכן שאינה בתחום ההרשאה שלך.</div></div>';
+  var p = person(name), list = st.list;
+
+  var h = back + '<div class="ph"><div><div class="name">' + esc(name) + '</div><div class="sub" style="margin-top:4px">' +
+    esc(p.ra.join(' / ') || 'רשות לא ידועה') + (p.mc ? ' · מחזור ' + esc(p.mc) : '') + '</div></div>' +
+    '<span style="align-self:center">' + statusChip(st) + '</span><span class="sp"></span>' +
+    (D.user.canWrite ? '<button type="button" class="btn pri no-print" data-act="go" data-v="form" data-n="' + esc(name) + '">' + ic('plus') + 'תצפית חדשה עליה</button>' : '') + '</div>';
+
+  if (p.unknown) h += '<div class="callout warn"><div class="x"><b>אינה מופיעה בקובץ השיוך</b><br>השם הזה קיים בתצפיות אבל לא בטבלת המש"קיות, ולכן אין לה מפקדת, מנה"ד ומחזור. בדרך כלל זו שגיאת כתיב בשם.</div></div>';
+
+  var cells = [];
+  cells.push('<div class="cell"><div class="k">תצפיות</div><div class="v">' + st.total + '</div><div class="f">&nbsp;</div></div>');
+  cells.push('<div class="cell"><div class="k">ב' + esc(X.sem) + '</div><div class="v">' + st.semN + '<small> מתוך ' + cfg.target + '</small></div><div class="f' + (st.semN >= cfg.target ? ' good' : '') + '">' + (st.semN >= cfg.target ? 'עמדה ביעד' : 'חסרות ' + (cfg.target - st.semN)) + '</div></div>');
+  cells.push('<div class="cell"><div class="k">ממוצע</div><div class="v">' + f1(st.avg) + '</div><div class="f">' + (X.nat.avg !== null && st.avg !== null ? 'ממוצע כללי ' + f1(X.nat.avg) : '&nbsp;') + '</div></div>');
+  cells.push('<div class="cell"><div class="k">ציון אחרון</div><div class="v">' + f1(st.lastScore) + '</div><div class="f' + (st.lastScore !== null && st.lastScore < cfg.low ? ' bad' : '') + '">' + (st.last ? ago(st.last.d) : '&nbsp;') + '</div></div>');
+  cells.push('<div class="cell"><div class="k">שינוי מהתצפית הראשונה</div><div class="v">' + sg(st.diff) + '</div><div class="f' + (st.diff !== null && st.diff < 0 ? ' bad' : (st.diff > 0 ? ' good' : '')) + '">' + (st.diff === null ? '&nbsp;' : (st.diff < 0 ? 'ירידה' : (st.diff > 0 ? 'עלייה' : 'ללא שינוי'))) + '</div></div>');
+  h += '<div class="ledger" style="--n:5">' + cells.join('') + '</div>';
+
+  if (st.risk && st.risk.level >= 3) {
+    h += '<div class="callout ' + (st.risk.level >= 5 ? 'bad' : 'warn') + '"><div class="x"><b>סיכון ' + esc(st.risk.label) + '</b><ul class="reasons">' +
+      st.risk.reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul></div></div>';
+  } else if (st.reco) {
+    h += '<div class="callout"><div class="x"><b>כדאי לצפות בה</b><br>' + esc(st.reco.why) + '</div></div>';
+  }
+
+  var info = '<div class="sheet"><div class="hd"><h2>שיוך</h2></div><div class="bd"><dl class="kv">' +
+    [['רשות', p.ra.join(' / ')], ['מפקדת', p.mf.join(' / ')], ['מנה"ד', p.mn.join(' / ')], ['פלוגה', p.pl.join(' / ')], ['מחוז', p.mz.join(' / ')], ['מחזור', p.mc], ['מספר אישי', p.pid], ['חסר בשיוך', p.x]]
+      .filter(function (x) { return x[1]; }).map(function (x) { return '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>'; }).join('') +
+    (p.rows.length ? '' : '<dt>שיוך</dt><dd class="muted">לא ידוע</dd>') + '</dl></div></div>';
+
+  if (!list.length) {
+    return h + '<div class="cols c21"><div class="sheet"><div class="empty"><b>עוד לא נצפתה</b>אין עליה אף תצפית.' +
+      (D.user.canWrite ? '<br><button type="button" class="btn pri" data-act="go" data-v="form" data-n="' + esc(name) + '">הזן תצפית ראשונה</button>' : '') + '</div></div>' + info + '</div>';
+  }
+
+  var scored = list.filter(function (o) { return o.s !== null; });
+  var trend = '<div class="sheet"><div class="hd"><h2>הציון לאורך זמן</h2></div><div class="bd">' +
+    (scored.length >= 2 ? lineChart(scored.map(function (o) { return { x: fmtS(o.d), y: o.s, tip: f1(o.s) + '|' + fmtD(o.d) + '|' + (o.ob || '') }; }), { thr: cfg.low, label: 'הציון של ' + name + ' לאורך זמן' })
+      : '<div class="muted">צריך לפחות שתי תצפיות עם ציון כדי לראות מגמה.</div>') + '</div></div>';
+  var crit = '<div class="sheet"><div class="hd"><h2>ממוצע לפי קריטריון</h2></div><div class="bd">' +
+    hbars(cfg.criteria.map(function (c, i) { return { l: c.label, v: st.ca[i], ref: X.nat.ca[i], tip: f2(st.ca[i]) + '|' + c.label + '|ממוצע כללי ' + f2(X.nat.ca[i]) }; }), 5) +
+    '<div class="legend"><span><i></i>' + esc(name) + '</span><span><i class="rf"></i>ממוצע כללי</span></div></div></div>';
+  h += '<div class="cols c21"><div>' + trend + crit + '</div><div>' + info + '</div></div>';
+
+  var desc = list.slice().reverse();
+  h += '<div class="sheet"><div class="hd"><h2>כל התצפיות</h2><span class="note">' + list.length + '</span></div>';
+  if (isWide()) {
+    h += table('card', [
+      { k: 'd', t: 'תאריך', f: function (o) { return '<span class="num">' + fmtD(o.d) + '</span>'; } },
+      { k: 'sc', t: 'בית ספר' }, { k: 'sh', t: 'שיפט' }, { k: 'ob', t: 'מתצפת' }
+    ].concat(cfg.criteria.map(function (c, i) {
+      return { k: 'c' + i, t: c.label, n: 1, v: function (o) { return typeof o.c[i] === 'number' ? o.c[i] : null; }, f: function (o) { return o.c[i] === '-' ? '<span class="muted">לא נצפה</span>' : crCell(typeof o.c[i] === 'number' ? o.c[i] : null); } };
+    })).concat([
+      { k: 's', t: 'ציון', n: 1, f: function (o) { return scHtml(o.s, { miss: o.sm }); } },
+      { k: 'fb', t: 'משוב', f: function (o) { return esc(o.fb || '—'); } }
+    ]), desc, { row: function (o) { return 'data-act="go" data-v="obs" data-r="' + o.r + '" tabindex="0"'; } });
+  } else {
+    h += '<div class="list">' + desc.map(function (o) { return obsLi(o, true); }).join('') + '</div>';
+  }
+  return h + '</div>';
+};
+
+/* ==========================================================================
+   מסך הדוחות
+   ========================================================================== */
+function tabs(group, items) {
+  return '<div class="tabs no-print" role="tablist">' + items.map(function (t) {
+    return '<button type="button" role="tab" aria-selected="' + (ST.tab[group] === t[0]) + '" class="' + (ST.tab[group] === t[0] ? 'on' : '') + '" data-act="tab" data-g="' + group + '" data-t="' + t[0] + '">' + esc(t[1]) +
+      (t[2] ? '<span class="n">' + t[2] + '</span>' : '') + '</button>';
+  }).join('') + '</div>';
+}
+ACT.tab = function (el) { ST.tab[el.dataset.g] = el.dataset.t; render(); };
+function critCols() {
+  return D.cfg.criteria.map(function (c, i) {
+    return { k: 'ca' + i, t: c.label, n: 1, v: function (r) { return r.ca[i]; }, f: function (r) { return crCell(r.ca[i]); } };
+  });
+}
+function seg(ch, cur, items) {
+  return '<div class="seg sm" role="group" style="display:inline-flex">' + items.map(function (x) {
+    return '<button type="button" class="' + (cur === x[0] ? 'on' : '') + '" data-act="' + ch + '" data-val="' + esc(x[0]) + '" aria-pressed="' + (cur === x[0]) + '">' + esc(x[1]) + '</button>';
+  }).join('') + '</div>';
+}
+
+VIEWS.rep = function () {
+  var hasMad = X.valid.some(isMadmach);
+  var T = [['nat', 'תמונת מצב'], ['dim', 'פילוחים']];
+  if (X.universe.length) T.push(['resp', 'אחריות']);
+  T.push(['obsv', 'מתצפתים'], ['month', 'חודש אחר חודש']);
+  if (hasMad) T.push(['mad', 'מדמ"ח']);
+  if (!T.some(function (t) { return t[0] === ST.tab.rep; })) ST.tab.rep = 'nat';
+  var h = ph('דוחות', D.user.seesAll ? '' : 'הדוחות מחושבים מהתצפיות שבתחום ההרשאה שלך.',
+    '<button type="button" class="btn no-print" data-act="print">' + ic('print') + 'הדפסה</button>') + tabs('rep', T);
+  if (!X.valid.length) return h + '<div class="sheet"><div class="empty"><b>אין עדיין נתונים לדוחות</b>הדוחות יתמלאו כשיוזנו תצפיות.</div></div>';
+  return h + REP[ST.tab.rep]();
+};
+var REP = {};
+
+REP.nat = function () {
+  var cfg = D.cfg, nat = X.nat, mon = monthly(X.valid), h = '';
+  var cells = [];
+  cells.push('<div class="cell"><div class="k">תצפיות</div><div class="v">' + nat.n + '</div><div class="f">' + esc(X.sem) + ': ' + X.valid.filter(function (o) { return semOf(o.d) === X.sem; }).length + '</div></div>');
+  cells.push('<div class="cell"><div class="k">מש"קיות שנצפו</div><div class="v">' + (X.universe.length ? X.seenUni + '<small> מתוך ' + X.universe.length + '</small>' : nat.mash) + '</div><div class="f">' + (X.universe.length ? 'כיסוי ' + Math.round(X.seenUni / X.universe.length * 100) + '%' : '&nbsp;') + '</div></div>');
+  cells.push('<div class="cell"><div class="k">ממוצע ציונים</div><div class="v">' + f1(nat.avg) + '</div><div class="f">' + nat.cnt + ' תצפיות עם ציון</div></div>');
+  cells.push('<div class="cell"><div class="k">ציונים מתחת ל-' + cfg.low + '</div><div class="v">' + nat.low + '</div><div class="f">' + (nat.cnt ? Math.round(nat.low / nat.cnt * 100) + '% מהתצפיות' : '&nbsp;') + '</div></div>');
+  h += '<div class="ledger" style="--n:4">' + cells.join('') + '</div>';
+
+  var total = 0, full = true;
+  var rows = cfg.criteria.map(function (c, i) {
+    var a = nat.ca[i], share = a === null ? null : a / 5 * c.weight * 100;
+    if (share === null) full = false; else total += share;
+    return { label: c.label, n: nat.critN[i], avg: a, pc: a === null ? null : a / 5, w: c.weight, share: share };
+  });
+  h += '<div class="sheet"><div class="hd"><h2>ממוצע לפי קריטריון</h2><span class="note">"תרומה לציון" = הממוצע חלקי 5, כפול המשקל. כך רואים איזה קריטריון מושך את הציון למטה.</span></div>' +
+    table('natCrit', [
+      { k: 'label', t: 'קריטריון', f: function (r) { return '<b>' + esc(r.label) + '</b>'; } },
+      { k: 'n', t: 'מדידות', n: 1 },
+      { k: 'avg', t: 'ממוצע (1–5)', n: 1, f: function (r) { return crCell(r.avg); } },
+      { k: 'pc', t: '% מהמקסימום', n: 1, f: function (r) { return pct(r.pc); } },
+      { k: 'w', t: 'משקל', n: 1, f: function (r) { return pct(r.w); } },
+      { k: 'share', t: 'תרומה לציון', n: 1, f: function (r) { return f1(r.share); } }
+    ], rows, { foot: '<tr><td>סך הכל</td><td class="n"></td><td class="n"></td><td class="n"></td><td class="n">100%</td><td class="n">' + (full ? f1(total) : '—') + '</td></tr>' }) + '</div>';
+
+  h += '<div class="cols c2"><div class="sheet"><div class="hd"><h2>התפלגות הציונים</h2></div><div class="bd">' + histogram(X.valid) + '</div></div>' +
+    '<div class="sheet"><div class="hd"><h2>ממוצע הציונים לפי חודש</h2></div><div class="bd">' +
+    lineChart(mon.map(function (m) { return { x: monthShort(m.key), y: m.avg, tip: f1(m.avg) + '|' + monthLabel(m.key) + '|' + m.n + ' תצפיות' }; }), { thr: cfg.low, area: true, label: 'ממוצע הציונים לפי חודש', w: isWide() ? 500 : 350, h: 190 }) + '</div></div></div>';
+  return h;
+};
+
+var DIMS = [['ra', 'רשות'], ['sc', 'בית ספר'], ['sh', 'שיפט'], ['mz', 'מחוז'], ['pl', 'פלוגה'], ['mc', 'מחזור'], ['m', 'מש"קית']];
+REP.dim = function () {
+  var dim = ST.rep.dim, label = DIMS.filter(function (d) { return d[0] === dim; })[0][1];
+  var rows = pivot(X.valid, function (o) {
+    if (dim === 'sc') return o.sc ? { id: o.ra + '|' + norm(o.sc), t: o.sc, s: o.ra } : null;
+    return o[dim];
+  });
+  var cols = [{ k: 'key', t: label, f: function (r) { return '<b>' + esc(r.key) + '</b>'; } }];
+  if (dim === 'sc') cols.push({ k: 'sub', t: 'רשות' });
+  cols.push({ k: 'n', t: 'תצפיות', n: 1 }, { k: 'share', t: '% מהתצפיות', n: 1, f: function (r) { return pct(r.share); } });
+  if (dim !== 'm') cols.push({ k: 'mash', t: 'מש"קיות', n: 1 });
+  cols.push({ k: 'avg', t: 'ממוצע', n: 1, f: function (r) { return scHtml(r.avg); } }, { k: 'low', t: 'ציונים נמוכים', n: 1, f: function (r) { return r.low || '—'; } });
+  cols = cols.concat(critCols());
+  cols.push({ k: 'last', t: 'תצפית אחרונה', f: function (r) { return '<span class="num">' + fmtD(r.last) + '</span>'; } });
+  var tap = { ra: 1, sh: 1, pl: 1, m: 1 }[dim];
+  return '<div class="bar no-print"><select class="in" data-ch="repDim" aria-label="פילוח לפי">' + DIMS.map(function (d) { return '<option value="' + d[0] + '"' + (d[0] === dim ? ' selected' : '') + '>לפי ' + esc(d[1]) + '</option>'; }).join('') + '</select>' +
+    '<span class="cnt">' + rows.length + ' שורות' + (tap ? ' · לחיצה על שורה פותחת את התצפיות שלה' : '') + '</span></div>' +
+    '<div class="sheet">' + table('dim_' + dim, cols, rows, { sort: { k: 'n', d: 'd' },
+      row: tap ? function (r) { return 'data-act="dimRow" data-dim="' + dim + '" data-key="' + esc(r.key) + '" tabindex="0"'; } : null }) + '</div>';
+};
+CH.repDim = function (el) { ST.rep.dim = el.value; render(); };
+ACT.dimRow = function (el) {
+  var dim = el.dataset.dim, key = el.dataset.key;
+  if (dim === 'm') return go('card', { n: key });
+  ST.list = { q: '', ra: '', pl: '', sh: '', st: '', when: '', ob: '', limit: 50 };
+  ST.list[dim] = key;
+  go('list');
+};
+
+REP.resp = function () {
+  var field = ST.rep.resp, rows = responsibility(field), title = field === 'mn' ? 'מנה"ד' : 'מפקדת';
+  return '<div class="bar no-print">' + seg('respSet', field, [['mn', 'לפי מנה"ד'], ['mf', 'לפי מפקדת']]) +
+    '<span class="cnt">לפי מה שבאחריות כל אחד בטבלת השיוך, לא לפי תצפיות שביצע</span></div>' +
+    '<div class="sheet">' + table('resp_' + field, [
+      { k: 'who', t: title, f: function (r) { return '<b>' + esc(r.who) + '</b>'; } },
+      { k: 'total', t: 'מש"קיות באחריות', n: 1 }, { k: 'seen', t: 'נצפו', n: 1 },
+      { k: 'none', t: 'ללא תצפית', n: 1, f: function (r) { return r.none ? '<b>' + r.none + '</b>' : '—'; } },
+      { k: 'cov', t: '% כיסוי', n: 1, f: function (r) { return pct(r.cov); } },
+      { k: 'n', t: 'תצפיות', n: 1 },
+      { k: 'avg', t: 'ממוצע המש"קיות', n: 1, f: function (r) { return scHtml(r.avg); } },
+      { k: 'ravg', t: 'ממוצע ברשויות', n: 1, f: function (r) { return scHtml(r.ravg); } }
+    ].concat(critCols()).concat([
+      { k: 'last', t: 'תצפית אחרונה', f: function (r) { return '<span class="num">' + fmtD(r.last) + '</span>'; } },
+      { k: 'rash', t: 'רשויות', c: 'w', f: function (r) { return esc(r.rash.join(', ')); }, v: function (r) { return r.rash.join(' '); } }
+    ]), rows, { sort: { k: 'none', d: 'd' }, row: function (r) { return 'data-act="mashFilter" data-who="' + esc(r.who) + '" tabindex="0"'; } }) + '</div>';
+};
+ACT.respSet = function (el) { ST.rep.resp = el.dataset.val; render(); };
+
+REP.obsv = function () {
+  var cfg = D.cfg, role = ST.rep.role, rows = observers(role);
+  var roles = heSort(uniq(X.valid.map(function (o) { return o.ro; })));
+  var curWeek = Math.max(schoolWeek(D.today), 1), show = Math.min(curWeek, 10);
+  var anyGoal = rows.some(function (r) { return r.goal !== null; });
+  var cols = [
+    { k: 'who', t: 'מתצפת', f: function (r) { return '<b>' + esc(r.who) + '</b>'; } },
+    { k: 'role', t: 'תפקיד' },
+    { k: 'n', t: 'תצפיות', n: 1 },
+    { k: 'thisWeek', t: 'השבוע', n: 1 }
+  ];
+  if (anyGoal) cols.push(
+    { k: 'goal', t: 'יעד מצטבר', n: 1, f: function (r) { return r.goal === null ? '—' : r.goal; } },
+    { k: 'gap', t: 'פער', n: 1, f: function (r) { return r.gap === null ? '—' : (r.gap ? '<b>' + r.gap + '</b>' : '0'); } });
+  cols.push(
+    { k: 'weeks', t: show + ' השבועות האחרונים', v: function (r) { return r.done; }, f: function (r) {
+      return '<span class="wk" role="img" aria-label="תצפיות לפי שבוע: ' + r.weeks.slice(-show).join(', ') + '">' + r.weeks.slice(-show).map(function (n, i) {
+        var wn = curWeek - show + i + 1;
+        return '<i class="' + (n >= cfg.weeklyTarget ? 'f' : (n > 0 ? 'p' : '')) + '" title="שבוע ' + wn + ' (מ-' + fmtS(weekStart(wn)) + '): ' + n + '">' + n + '</i>';
+      }).join('') + '</span>';
+    } },
+    { k: 'avg', t: 'ממוצע שנותן', n: 1, f: function (r) { return scHtml(r.avg); } },
+    { k: 'diff', t: 'סטייה מהממוצע', n: 1, f: function (r) { return sg(r.diff); } },
+    { k: 'sd', t: 'פיזור', n: 1, f: function (r) { return r.sd === null ? '—' : r.sd; } },
+    { k: 'status', t: 'כיול', f: function (r) { return '<span class="chip ' + r.cls + '" title="' + esc(r.note) + '">' + esc(r.status) + '</span>'; } },
+    { k: 'last', t: 'תצפית אחרונה', f: function (r) { return '<span class="num">' + fmtD(r.last) + '</span>'; } });
+  var talk = rows.filter(function (r) { return r.cls === 'orange' || r.cls === 'yellow'; });
+  return '<div class="bar no-print">' + sel('obsRole', role, 'כל התפקידים', roles) +
+    '<span class="cnt">שבוע ' + curWeek + ' לשנת הלימודים' + (anyGoal ? '. יעד: ' + cfg.weeklyTarget + ' תצפיות בשבוע למנה"ד ולמפקדת' : '') + '</span></div>' +
+    '<div class="sheet">' + table('obsv', cols, rows, { sort: { k: 'n', d: 'd' }, row: function (r) { return 'data-act="obsvRow" data-who="' + esc(r.who) + '" tabindex="0"'; } }) + '</div>' +
+    (talk.length ? '<div class="sheet"><div class="hd"><h2>שווה שיחת כיול</h2><span class="note">מתצפתים שהדירוג שלהם חורג מהשאר</span></div><div class="bd flush"><div class="list">' +
+      talk.map(function (r) { return '<div class="li"><span class="t">' + esc(r.who) + '</span><span class="e"><span class="chip ' + r.cls + '">' + esc(r.status) + '</span></span><span class="m">' + esc(r.note) + '</span></div>'; }).join('') + '</div></div></div>' : '') +
+    '<p class="sub" style="max-width:75ch">"מקל" או "מחמיר" = הממוצע שהמתצפת נותן רחוק ב-5 נקודות ומעלה מהממוצע הכללי. "דירוג אחיד" = אותו ציון ברוב הקריטריונים. כשמתצפת אחד מקל ואחר מחמיר, ההשוואה בין המש"קיות שלהם אינה הוגנת.</p>';
+};
+CH.obsRole = function (el) { ST.rep.role = el.value; render(); };
+ACT.obsvRow = function (el) {
+  ST.list = { q: '', ra: '', pl: '', sh: '', st: '', when: '', ob: el.dataset.who, limit: 50 };
+  go('list');
+};
+
+REP.month = function () {
+  var asc = monthly(X.valid), rows = asc.slice().reverse(), cfg = D.cfg;
+  var minis = '';
+  if (asc.length >= 2) {
+    minis = '<div class="sheet"><div class="hd"><h2>מגמת כל קריטריון</h2><span class="note">ממוצע חודשי, סולם 1 עד 5. האם אנחנו משתפרים, ובאיזה ממד.</span></div><div class="bd"><div class="minis">' +
+      cfg.criteria.map(function (c, i) {
+        var pts = asc.map(function (m) { return { x: monthShort(m.key), y: m.ca[i] === null ? null : Math.round(m.ca[i] * 100) / 100, tip: f2(m.ca[i]) + '|' + c.label + '|' + monthLabel(m.key) }; });
+        var first = null, last = null;
+        pts.forEach(function (p) { if (p.y !== null) { if (first === null) first = p.y; last = p.y; } });
+        var d = (first !== null && last !== null) ? Math.round((last - first) * 100) / 100 : null;
+        return '<div><h3>' + esc(c.label) + '</h3><div class="muted">' + (d === null ? '&nbsp;' : 'מתחילת התקופה: ' + sg(d)) + '</div>' +
+          lineChart(pts, { min: 1, max: 5, w: 330, h: 150, label: 'מגמת ' + c.label }) + '</div>';
+      }).join('') + '</div></div></div>';
+  }
+  return minis + '<div class="sheet">' + table('month', [
+    { k: 'key', t: 'חודש', f: function (r) { return '<b>' + esc(monthLabel(r.key)) + '</b>'; } },
+    { k: 'n', t: 'תצפיות', n: 1 }, { k: 'mash', t: 'מש"קיות שנצפו', n: 1 },
+    { k: 'cov', t: '% כיסוי', n: 1, f: function (r) { return pct(r.cov); } },
+    { k: 'avg', t: 'ממוצע', n: 1, f: function (r) { return scHtml(r.avg); } },
+    { k: 'delta', t: 'שינוי מהחודש הקודם', n: 1, f: function (r) { return sg(r.delta); } },
+    { k: 'low', t: 'ציונים נמוכים', n: 1, f: function (r) { return r.low || '—'; } }
+  ].concat(critCols()), rows) + '</div>' +
+    '<p class="sub">"% כיסוי" הוא חלקן של המש"קיות שנצפו באותו חודש מתוך כלל המש"קיות. הכול מחושב מתאריכי התצפיות, ולכן תיקון של תאריך ישן מתקן גם את העבר.</p>';
+};
+
+REP.mad = function () {
+  var cfg = D.cfg, list = X.valid.filter(isMadmach), a = agg(list), nat = X.nat, h = '';
+  var cells = [];
+  cells.push('<div class="cell"><div class="k">תצפיות מדמ"ח</div><div class="v">' + a.n + '</div><div class="f">' + (nat.n ? Math.round(a.n / nat.n * 100) + '% מכלל התצפיות' : '') + '</div></div>');
+  cells.push('<div class="cell"><div class="k">מש"קיות שנצפו</div><div class="v">' + a.mash + '</div><div class="f">&nbsp;</div></div>');
+  var d = (a.avg !== null && nat.avg !== null) ? r1(a.avg - nat.avg) : null;
+  cells.push('<div class="cell"><div class="k">ממוצע מדמ"ח</div><div class="v">' + f1(a.avg) + '</div><div class="f' + (d === null ? '' : (d < 0 ? ' bad' : ' good')) + '">ממוצע כללי ' + f1(nat.avg) + (d === null ? '' : ' (' + sg(d) + ')') + '</div></div>');
+  cells.push('<div class="cell"><div class="k">ציונים מתחת ל-' + cfg.low + '</div><div class="v">' + a.low + '</div><div class="f">&nbsp;</div></div>');
+  h += '<div class="ledger" style="--n:4">' + cells.join('') + '</div>';
+  h += '<div class="cols c2"><div class="sheet"><div class="hd"><h2>ממוצע לפי קריטריון</h2></div><div class="bd">' +
+    hbars(cfg.criteria.map(function (c, i) { return { l: c.label, v: a.ca[i], ref: nat.ca[i], tip: f2(a.ca[i]) + '|' + c.label + '|ממוצע כללי ' + f2(nat.ca[i]) }; }), 5) +
+    '<div class="legend"><span><i></i>מדמ"ח</span><span><i class="rf"></i>ממוצע כללי</span></div></div></div>' +
+    '<div class="sheet"><div class="hd"><h2>לפי שיפט</h2></div>' + table('madSh', [
+      { k: 'key', t: 'שיפט', f: function (r) { return '<b>' + esc(r.key) + '</b>'; } }, { k: 'n', t: 'תצפיות', n: 1 }, { k: 'mash', t: 'מש"קיות', n: 1 },
+      { k: 'avg', t: 'ממוצע', n: 1, f: function (r) { return scHtml(r.avg); } }, { k: 'low', t: 'נמוכים', n: 1, f: function (r) { return r.low || '—'; } }
+    ], pivot(list, function (o) { return o.sh; })) + '</div></div>';
+  h += '<div class="sheet"><div class="hd"><h2>לפי רשות</h2></div>' + table('madRa', [
+    { k: 'key', t: 'רשות', f: function (r) { return '<b>' + esc(r.key) + '</b>'; } }, { k: 'n', t: 'תצפיות', n: 1 }, { k: 'mash', t: 'מש"קיות', n: 1 },
+    { k: 'avg', t: 'ממוצע', n: 1, f: function (r) { return scHtml(r.avg); } }, { k: 'low', t: 'נמוכים', n: 1, f: function (r) { return r.low || '—'; } }
+  ].concat(critCols()), pivot(list, function (o) { return o.ra; }), { sort: { k: 'n', d: 'd' } }) + '</div>';
+  h += '<p class="sub"><button type="button" class="btn sm" data-act="listFilter" data-st="madmach">פתח את תצפיות המדמ"ח ברשימה</button></p>';
+  return h;
+};
+
+/* ==========================================================================
+   מסך הטיפול: התראות, המלצות, סיכון, בקרת נתונים, יומן שינויים
+   ========================================================================== */
+VIEWS.care = function () {
+  var crit = X.alerts.filter(function (a) { return a.sev === 1; }).length, q = quality();
+  var T = [['alerts', 'התראות', crit || ''], ['reco', 'את מי לצפות'], ['risk', 'בסיכון'], ['quality', 'בקרת נתונים', q.total || '']];
+  if (D.user.isAdmin) T.push(['log', 'יומן שינויים']);
+  if (!T.some(function (t) { return t[0] === ST.tab.care; })) ST.tab.care = 'alerts';
+  return ph('טיפול', 'מה דורש פעולה עכשיו, לפי סדר דחיפות.') + tabs('care', T) + CARE[ST.tab.care]();
+};
+var CARE = {};
+
+CARE.alerts = function () {
+  var rows = X.alerts;
+  if (!rows.length) return '<div class="sheet"><div class="empty"><b>אין התראות פתוחות</b>אין ציונים נמוכים ברצף, וכל המשובים הועברו בזמן.</div></div>';
+  var note = '<p class="sub" style="max-width:75ch">קריטי = ציון מתחת ל-' + D.cfg.low + ' בשתי תצפיות רצופות, או משוב שלא הועבר יותר משלושה שבועות. לטיפול = משוב שלא הועבר יותר מ-' + D.cfg.feedbackDays + ' ימים.</p>';
+  if (!isWide()) return '<div class="sheet"><div class="list">' + rows.map(alertLi).join('') + '</div></div>' + note;
+  return '<div class="sheet">' + table('alerts', [
+    { k: 'sev', t: 'דחיפות', f: function (a) { return '<span class="chip ' + (a.sev === 1 ? 'red' : 'orange') + '">' + (a.sev === 1 ? 'קריטי' : 'לטיפול') + '</span>'; } },
+    { k: 'title', t: 'מה קרה' },
+    { k: 'm', t: 'מש"קית', f: function (a) { return '<b>' + esc(a.m) + '</b>'; } },
+    { k: 'ra', t: 'רשות', v: function (a) { return a.o.ra; }, f: function (a) { return esc(a.o.ra || '—'); } },
+    { k: 'ob', t: 'מתצפת', v: function (a) { return a.o.ob; }, f: function (a) { return esc(a.o.ob || '—'); } },
+    { k: 'd', t: 'תאריך התצפית', v: function (a) { return a.o.d; }, f: function (a) { return '<span class="num">' + fmtD(a.o.d) + '</span>'; } },
+    { k: 'info', t: 'פרטים', f: function (a) { return a.kind === 'low2' ? esc(a.info) : scHtml(a.o.s); }, v: function (a) { return a.o.s; } },
+    { k: 'todo', t: 'מה לעשות', f: function (a) {
+      var can = a.kind === 'fb' && (a.o.e || (D.user.canWrite && !D.user.seesAll));
+      return can ? '<button type="button" class="btn sm" data-act="fbSet" data-r="' + a.o.r + '" data-val="כן">' + ic('check') + 'המשוב הועבר</button>' : esc(a.todo);
+    } }
+  ], rows, { row: function (a) { return 'data-act="rowObs" data-r="' + a.o.r + '" tabindex="0"'; } }) + '</div>' + note;
+};
+/* לחיצה על שורה פותחת את התצפית, אבל לא כשלוחצים על כפתור שבתוכה */
+ACT.rowObs = function (el, ev) {
+  if (ev.target.closest('button,a')) return;
+  go('obs', { r: el.dataset.r });
+};
+
+CARE.reco = function () {
+  var cfg = D.cfg, F = ST.reco;
+  var whoList = heSort(uniq([].concat.apply([], X.reco.map(function (s) { return person(s.n).mn; }))));
+  var rows = X.reco.filter(function (s) { return !F.who || person(s.n).mn.indexOf(F.who) !== -1; });
+  if (!X.universe.length) return '<div class="sheet"><div class="empty"><b>אין רשימת מש"קיות באחריותך</b>ההמלצות נגזרות מטבלת השיוך. כשיוגדר לך תפקיד עם מש"קיות, הן יופיעו כאן.</div></div>';
+  if (!X.reco.length) return '<div class="sheet"><div class="empty"><b>כולן נצפו ועומדות ביעד</b>אין כרגע מש"קית שדורשת תצפית.</div></div>';
+  var h = '<div class="bar no-print">' + (whoList.length > 1 ? sel('recoWho', F.who, 'כל המנה"דים', whoList) : '') +
+    '<span class="cnt">' + rows.length + ' מש"קיות · יעד: ' + cfg.target + ' תצפיות לכל מש"קית ב' + esc(X.sem) + '</span></div>';
+  if (!isWide()) return h + '<div class="sheet"><div class="list">' + rows.map(recoLi).join('') + '</div></div>';
+  return h + '<div class="sheet">' + table('reco', [
+    { k: 'pri', t: 'עדיפות', v: function (s) { return s.reco.pri; }, f: function (s) { return '<span class="chip ' + s.reco.cls + '">' + s.reco.label + '</span>'; } },
+    { k: 'n', t: 'מש"קית', f: function (s) { return '<b>' + esc(s.n) + '</b>'; } },
+    { k: 'ra', t: 'רשות', v: function (s) { return person(s.n).ra.join(' '); }, f: function (s) { return esc(person(s.n).ra.join(' / ') || '—'); } },
+    { k: 'mn', t: 'מנה"ד', v: function (s) { return person(s.n).mn.join(' '); }, f: function (s) { return esc(person(s.n).mn.join(' / ') || '—'); } },
+    { k: 'mf', t: 'מפקדת', v: function (s) { return person(s.n).mf.join(' '); }, f: function (s) { return esc(person(s.n).mf.join(' / ') || '—'); } },
+    { k: 'semN', t: 'בסמסטר', n: 1, f: function (s) { return s.semN + ' מתוך ' + cfg.target; } },
+    { k: 'lastScore', t: 'ציון אחרון', n: 1, f: function (s) { return scHtml(s.lastScore); } },
+    { k: 'age', t: 'נצפתה לאחרונה', f: function (s) { return s.last ? esc(ago(s.last.d)) : '<span class="muted">אף פעם</span>'; } },
+    { k: 'why', t: 'למה דווקא היא', c: 'w', v: function (s) { return s.reco.why; }, f: function (s) { return esc(s.reco.why); } }
+  ], rows, { row: function (s) { return 'data-act="go" data-v="card" data-n="' + esc(s.n) + '" tabindex="0"'; } }) + '</div>';
+};
+CH.recoWho = function (el) { ST.reco.who = el.value; render(); };
+
+CARE.risk = function () {
+  var all = ST.riskAll, rows = X.risk.filter(function (s) { return all || s.risk.level >= 3; });
+  var hidden = X.risk.length - X.risk.filter(function (s) { return s.risk.level >= 3; }).length;
+  var h = '<div class="bar no-print">' + seg('riskSet', all ? '1' : '0', [['0', 'קריטי וגבוה'], ['1', 'כולל למעקב (' + hidden + ')']]) + '<span class="cnt">' + rows.length + ' מש"קיות</span></div>';
+  if (!rows.length) return h + '<div class="sheet"><div class="empty"><b>אין מש"קיות ברמת סיכון גבוהה</b>' + (hidden ? hidden + ' נמצאות במעקב בלבד.' : '') + '</div></div>';
+  if (!isWide()) {
+    return h + '<div class="sheet"><div class="list">' + rows.map(function (s) {
+      return '<button type="button" class="li" data-act="go" data-v="card" data-n="' + esc(s.n) + '"><span class="t">' + esc(s.n) + '</span><span class="e">' + scHtml(s.lastScore) + '</span>' +
+        '<span class="m"><span class="chip ' + s.risk.cls + '">' + esc(s.risk.label) + '</span><span>' + esc(s.risk.reasons[0]) + (s.risk.reasons.length > 1 ? ' ועוד ' + (s.risk.reasons.length - 1) : '') + '</span></span></button>';
+    }).join('') + '</div></div>';
+  }
+  return h + '<div class="sheet">' + table('risk', [
+    { k: 'level', t: 'רמה', v: function (s) { return s.risk.level; }, f: function (s) { return '<span class="chip ' + s.risk.cls + '">' + esc(s.risk.label) + '</span>'; } },
+    { k: 'n', t: 'מש"קית', f: function (s) { return '<b>' + esc(s.n) + '</b>'; } },
+    { k: 'ra', t: 'רשות', v: function (s) { return s.last.ra; }, f: function (s) { return esc(s.last.ra || person(s.n).ra.join(' / ') || '—'); } },
+    { k: 'mn', t: 'מנה"ד', v: function (s) { return s.last.mn; }, f: function (s) { return esc(s.last.mn || person(s.n).mn.join(' / ') || '—'); } },
+    { k: 'total', t: 'תצפיות', n: 1 },
+    { k: 'lastScore', t: 'ציון אחרון', n: 1, f: function (s) { return scHtml(s.lastScore); } },
+    { k: 'diff', t: 'שינוי', n: 1, f: function (s) { return sg(s.diff); } },
+    { k: 'age', t: 'תצפית אחרונה', f: function (s) { return '<span class="num">' + fmtD(s.last.d) + '</span>'; } },
+    { k: 'why', t: 'הסיבות', c: 'w', v: function (s) { return s.risk.reasons.length; }, f: function (s) { return s.risk.reasons.map(esc).join('<br>'); } }
+  ], rows, { row: function (s) { return 'data-act="go" data-v="card" data-n="' + esc(s.n) + '" tabindex="0"'; } }) + '</div>';
+};
+ACT.riskSet = function (el) { ST.riskAll = el.dataset.val === '1'; render(); };
+
+CARE.quality = function () {
+  var q = quality(), h = '';
+  var block = function (title, note, body) { return '<div class="sheet"><div class="hd"><h2>' + title + '</h2>' + (note ? '<span class="note">' + note + '</span>' : '') + '</div>' + body + '</div>'; };
+  if (!q.obs.length && !q.unknown.length && !q.roster.length && !q.dups.length && !q.mismatch.length && !q.pid.length) {
+    return '<div class="sheet"><div class="empty"><b>הנתונים תקינים</b>לא נמצאו שדות חסרים, כפילויות או שמות לא מזוהים.</div></div>';
+  }
+  if (q.unknown.length) h += block('מש"קיות שלא זוהו', 'שמות שמופיעים בתצפיות ואינם בקובץ השיוך', table('qUnknown', [
+    { k: 'n', t: 'השם בתצפיות', f: function (r) { return '<b>' + esc(r.n) + '</b>'; } }, { k: 'count', t: 'תצפיות', n: 1 },
+    { k: 'hint', t: 'מה כנראה קרה', c: 'w', f: function (r) { return '<span class="chip ' + r.cls + ' plain">' + esc(r.hint) + '</span>'; } }
+  ], q.unknown, { row: function (r) { return 'data-act="go" data-v="card" data-n="' + esc(r.n) + '" tabindex="0"'; } }));
+  if (q.pid.length) h += block('מספר אישי אחד תחת כמה שמות', 'כנראה שגיאת כתיב באחד מהם', table('qPid', [
+    { k: 'pid', t: 'מספר אישי' }, { k: 'names', t: 'השמות', f: function (r) { return esc(r.names.join('  |  ')); }, v: function (r) { return r.names.join(' '); } }
+  ], q.pid));
+  if (q.roster.length) h += block('חוסרים בקובץ השיוך', 'מתקנים בקובץ "כא גשרים" ואז מסנכרנים', table('qRoster', [
+    { k: 'n', t: 'מש"קית', f: function (r) { return '<b>' + esc(r.n) + '</b>'; } },
+    { k: 'text', t: 'מה חסר', c: 'w', f: function (r) { return '<span class="chip ' + r.cls + ' plain">' + esc(r.text) + '</span>'; } }
+  ], q.roster));
+  if (q.dups.length) h += block('תצפיות כפולות', 'אותה מש"קית, תאריך, שיעור ומתצפת', '<div class="list">' + q.dups.map(function (g) {
+    return '<div class="li"><span class="t">' + esc(g[0].m) + ' · ' + fmtD(g[0].d) + '</span><span class="e"></span><span class="m">' +
+      g.map(function (o) { return '<button type="button" class="btn sm" data-act="go" data-v="obs" data-r="' + o.r + '">שורה ' + o.r + '</button>'; }).join('') + '</span></div>';
+  }).join('') + '</div>');
+  if (q.obs.length) h += block('תצפיות עם חוסרים', q.obs.length + ' תצפיות', table('qObs', [
+    { k: 'sev', t: 'עדיפות', f: function (r) { return '<span class="chip ' + ['', 'red', 'orange', 'plain'][r.sev] + '">' + ['', 'דחוף', 'לטיפול', 'השלמה'][r.sev] + '</span>'; } },
+    { k: 'd', t: 'תאריך', v: function (r) { return r.o.d; }, f: function (r) { return '<span class="num">' + fmtD(r.o.d) + '</span>'; } },
+    { k: 'm', t: 'מש"קית', v: function (r) { return r.o.m; }, f: function (r) { return '<b>' + esc(r.o.m || '(בלי שם)') + '</b>'; } },
+    { k: 'ob', t: 'מתצפת', v: function (r) { return r.o.ob; }, f: function (r) { return esc(r.o.ob || '—'); } },
+    { k: 'text', t: 'מה חסר', c: 'w' }
+  ], q.obs, { limit: ST.qLimit || 40, moreAct: 'qMore', row: function (r) { return 'data-act="go" data-v="obs" data-r="' + r.o.r + '" tabindex="0"'; } }));
+  if (q.mismatch.length) h += block('סתירות מול קובץ השיוך', 'מה שנכתב בתצפית שונה ממה שבשיוך היום. תצפית ישנה משקפת לעתים שיוך קודם — זה תקין.', table('qMis', [
+    { k: 'd', t: 'תאריך', v: function (r) { return r.o.d; }, f: function (r) { return '<span class="num">' + fmtD(r.o.d) + '</span>'; } },
+    { k: 'm', t: 'מש"קית', v: function (r) { return r.o.m; }, f: function (r) { return '<b>' + esc(r.o.m) + '</b>'; } },
+    { k: 'text', t: 'הסתירה', c: 'w' }
+  ], q.mismatch, { limit: 30, row: function (r) { return 'data-act="go" data-v="obs" data-r="' + r.o.r + '" tabindex="0"'; } }));
+  return h;
+};
+ACT.qMore = function () { ST.qLimit = (ST.qLimit || 40) + 60; render(); };
+
+CARE.log = function () {
+  if (ST.log === null) {
+    ST.log = 'loading';
+    call('apiLog').then(function (rows) { ST.log = rows; if (ST.view === 'care') render(); })
+      .catch(function (e) { ST.log = { err: cleanErr(e) }; if (ST.view === 'care') render(); });
+  }
+  if (ST.log === 'loading') return '<div class="sheet"><div class="spin">טוען את היומן…</div></div>';
+  if (ST.log.err) return '<div class="sheet"><div class="empty"><b>היומן לא נטען</b>' + esc(ST.log.err) + '</div></div>';
+  return '<div class="bar no-print"><button type="button" class="btn sm" data-act="logReload">' + ic('refresh') + 'טען מחדש</button><span class="cnt">' + ST.log.length + ' הרשומות האחרונות</span></div>' +
+    '<div class="sheet">' + table('log', [
+      { k: 't', t: 'מתי', f: function (r) { return '<span class="num">' + esc(r.t) + '</span>'; } },
+      { k: 'who', t: 'מי' }, { k: 'row', t: 'שורה', n: 1 }, { k: 'field', t: 'שדה' },
+      { k: 'oldV', t: 'ערך קודם', c: 'w' }, { k: 'newV', t: 'ערך חדש', c: 'w' }
+    ], ST.log, { empty: 'היומן ריק', row: function (r) { return X.byRow[r.row] ? 'data-act="go" data-v="obs" data-r="' + esc(r.row) + '" tabindex="0"' : ''; } }) + '</div>';
+};
+ACT.logReload = function () { ST.log = null; render(); };
+
+/* ==========================================================================
+   מסך הניהול: משתמשים ופעולות מערכת
+   ========================================================================== */
+VIEWS.adm = function () {
+  if (!D.user.isAdmin) return '<div class="sheet"><div class="empty"><b>המסך הזה פתוח למנהלי המערכת בלבד</b></div></div>';
+  return ph('ניהול', '') + tabs('adm', [['users', 'משתמשים והרשאות'], ['sys', 'מערכת']]) + ADM[ST.tab.adm]();
+};
+var ADM = {};
+var ROLE_HELP = {
+  'מנהל': 'רואה ועורך הכל, כולל המסך הזה',
+  'צופה': 'רואה הכל, בלי להזין ובלי לערוך',
+  'מנה"ד מחוזי': 'רואה את כל המחוז שנבחר לו',
+  'מנה"ד': 'רואה את המש"קיות שבאחריותו לפי קובץ השיוך',
+  'מפקדת': 'רואה את המש"קיות שלה לפי קובץ השיוך',
+  'מתצפת': 'מזין תצפיות ורואה רק את מה שהזין'
+};
+function loadUsers() {
+  ST.users = 'loading';
+  call('apiUsers').then(function (r) { ST.users = r; if (ST.view === 'adm') render(); })
+    .catch(function (e) { ST.users = { err: cleanErr(e) }; if (ST.view === 'adm') render(); });
+}
+ADM.users = function () {
+  if (ST.users === null) loadUsers();
+  if (ST.users === null || ST.users === 'loading') return '<div class="sheet"><div class="spin">טוען משתמשים…</div></div>';
+  if (ST.users.err) return '<div class="sheet"><div class="empty"><b>הרשימה לא נטענה</b>' + esc(ST.users.err) + '</div></div>';
+  var U = ST.users.users;
+  var h = '<div class="bar"><button type="button" class="btn pri" data-act="userEdit" data-email="">' + ic('plus') + 'הוסף משתמש</button>' +
+    '<span class="cnt">מי שאינו ברשימה ושייך לארגון נכנס כ"מתצפת"</span></div>';
+  h += '<div class="sheet">' + table('users', [
+    { k: 'email', t: 'אימייל', f: function (u) { return '<span dir="ltr">' + esc(u.email) + '</span>'; } },
+    { k: 'name', t: 'שם', f: function (u) { return u.name ? '<b>' + esc(u.name) + '</b>' : '<span class="muted">—</span>'; } },
+    { k: 'role', t: 'תפקיד', f: function (u) { return '<span class="chip ' + (u.role === 'מנהל' ? 'blue' : 'plain') + '">' + esc(u.role) + '</span>' + (u.fixed ? ' <span class="muted">קבוע בקוד</span>' : ''); } },
+    { k: 'scope', t: 'רואה', f: function (u) {
+      if (u.role === 'מנה"ד מחוזי') return 'מחוז ' + esc(u.scope || '?');
+      if (u.role === 'מנה"ד' || u.role === 'מפקדת') return 'המש"קיות של ' + esc(u.name || '?');
+      return esc(ROLE_HELP[u.role] || '');
+    }, v: function (u) { return u.scope; } },
+    { k: 'x', t: '', f: function (u) {
+      return '<span class="row-btns"><button type="button" class="btn sm" data-act="userEdit" data-email="' + esc(u.email) + '">עריכה</button>' +
+        (u.fixed ? '' : '<button type="button" class="btn sm danger" data-act="userDel" data-email="' + esc(u.email) + '">הסרה</button>') + '</span>';
+    }, v: function () { return 0; } }
+  ], U) + '</div>';
+  var have = {};
+  U.forEach(function (u) { if (u.name) have[norm(u.name)] = 1; });
+  var cand = [];
+  uniq(D.roster.filter(function (r) { return !r.sus; }).map(function (r) { return r.mn; })).forEach(function (n) { if (!have[norm(n)] && !/^\d+$/.test(n)) cand.push([n, 'מנה"ד']); });
+  uniq(D.roster.filter(function (r) { return !r.sus; }).map(function (r) { return r.mf; })).forEach(function (n) { if (!have[norm(n)] && !/^\d+$/.test(n)) cand.push([n, 'מפקדת']); });
+  if (cand.length) {
+    h += '<div class="sheet"><div class="hd"><h2>בעלי תפקיד בלי משתמש</h2><span class="note">מופיעים בקובץ השיוך. עד שיוגדרו, הם נכנסים כ"מתצפת" ורואים רק מה שהזינו.</span></div><div class="bd"><div class="row-btns">' +
+      cand.map(function (c) { return '<button type="button" class="btn sm" data-act="userEdit" data-email="" data-name="' + esc(c[0]) + '" data-role="' + esc(c[1]) + '">' + esc(c[0]) + ' <span class="muted">' + esc(c[1]) + '</span></button>'; }).join('') +
+      '</div></div></div>';
+  }
+  h += '<div class="sheet"><div class="hd"><h2>מה כל תפקיד רואה</h2></div><div class="bd"><dl class="kv">' +
+    D.cfg.userRoles.map(function (r) { return '<dt>' + esc(r) + '</dt><dd style="font-weight:400">' + esc(ROLE_HELP[r] || '') + '</dd>'; }).join('') +
+    '</dl><p class="sub" style="margin-top:10px;max-width:75ch">למנה"ד ולמפקדת, השם חייב להיות זהה לשם שמופיע בקובץ השיוך — לפיו נקבע מה הם רואים. לכן השם נבחר מרשימה ולא מוקלד.</p></div></div>';
+  return h;
+};
+ACT.userEdit = function (el) {
+  var email = el.dataset.email, U = ST.users, u = (U.users || []).filter(function (x) { return x.email === email; })[0] || { email: '', name: el.dataset.name || '', role: el.dataset.role || 'מתצפת', scope: '' };
+  var roles = D.cfg.userRoles;
+  openDlg({
+    title: email ? 'עריכת משתמש' : 'משתמש חדש',
+    html: '<div class="db">' +
+      '<div class="fld"><label for="uEmail">אימייל</label><input id="uEmail" class="in" dir="ltr" type="email" value="' + esc(u.email) + '"' + (email ? ' readonly' : ' data-focus') + ' placeholder="name@cyber.org.il" autocomplete="off"></div>' +
+      '<div class="fld"><label for="uRole">תפקיד</label><select id="uRole" class="in" data-ch="uRole"' + (u.fixed ? ' disabled' : '') + '>' + roles.map(function (r) { return '<option' + (r === u.role ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select>' +
+      '<div class="sub" id="uRoleHelp" style="margin-top:4px">' + esc(ROLE_HELP[u.role] || '') + '</div></div>' +
+      '<div class="fld"><label for="uName">שם <span class="opt" id="uNameOpt">' + ((u.role === 'מנה"ד' || u.role === 'מפקדת') ? 'חובה — כפי שהוא בקובץ השיוך' : 'ישמש כשם המתצפת בטופס') + '</span></label>' +
+      '<input id="uName" class="in" list="uNames" value="' + esc(u.name) + '" autocomplete="off"><datalist id="uNames">' + (U.names || []).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist></div>' +
+      '<div class="fld" id="uScopeBox"' + (u.role === 'מנה"ד מחוזי' ? '' : ' hidden') + '><label for="uScope">מחוז</label><select id="uScope" class="in"><option value="">בחר מחוז</option>' +
+      (U.mehozot || []).map(function (m) { return '<option' + (m === u.scope ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('') + '</select></div>' +
+      '</div><div class="df"><button type="button" class="btn pri" data-act="userSave">שמור משתמש</button><button type="button" class="btn" data-act="dlgClose">ביטול</button></div>'
+  });
+};
+CH.uRole = function (el) {
+  var r = el.value;
+  $('#uRoleHelp').textContent = ROLE_HELP[r] || '';
+  $('#uScopeBox').hidden = r !== 'מנה"ד מחוזי';
+  $('#uNameOpt').textContent = (r === 'מנה"ד' || r === 'מפקדת') ? 'חובה — כפי שהוא בקובץ השיוך' : 'ישמש כשם המתצפת בטופס';
+};
+ACT.userSave = function (el) {
+  var rec = { email: $('#uEmail').value.trim(), role: $('#uRole').value, name: $('#uName').value.trim(), scope: $('#uScope').value };
+  el.disabled = true;
+  call('apiUserSave', rec).then(function (r) { ST.users = r; closeDlg(null); render(); toast('המשתמש נשמר'); })
+    .catch(function (e) { el.disabled = false; fail(e); });
+};
+ACT.userDel = function (el) {
+  var email = el.dataset.email;
+  confirmBox({ title: 'הסרת משתמש', text: 'להסיר את ' + email + ' מרשימת המשתמשים?\nאם הוא שייך לארגון, הוא ימשיך להיכנס כ"מתצפת".', ok: 'הסר משתמש', danger: true }).then(function (yes) {
+    if (!yes) return;
+    call('apiUserDelete', email).then(function (r) { ST.users = r; render(); toast('המשתמש הוסר'); }).catch(fail);
+  });
+};
+
+ADM.sys = function () {
+  var cfg = D.cfg, h = '';
+  h += '<div class="sheet"><div class="hd"><h2>פעולות</h2></div><div class="bd"><div class="list" style="margin:0 -16px">' +
+    sysRow('סנכרון קובץ השיוך', 'מושך מחדש את המש"קיות, המפקדות והמנה"דים מקובץ "כא גשרים". להריץ אחרי כל שינוי בקובץ.', 'sysSync', 'סנכרן עכשיו') +
+    sysRow('רענון הנתונים', 'האתר שומר את הנתונים כמה דקות כדי לעבוד מהר. אם ערכת משהו ישירות בגיליון ואינך רואה אותו — רענן.', 'refresh', 'רענן') +
+    sysRow('מצגת חודשית', 'יוצר מצגת Google Slides מהגרפים שבגיליון "דשבורד", ושומר אותה לצד הקובץ.', 'sysPres', 'הפק מצגת') +
+    (cfg.sheetUrl ? '<div class="li"><span class="t">הגיליון</span><span class="e"><a class="btn sm" href="' + esc(cfg.sheetUrl) + '" target="_blank" rel="noopener">' + ic('ext') + 'פתח</a></span><span class="m">מקום האחסון של כל הנתונים. לעבודה שוטפת אין צורך לפתוח אותו.</span></div>' : '') +
+    '</div></div></div>';
+  h += '<div class="cols c2"><div class="sheet"><div class="hd"><h2>כללי החישוב</h2><span class="note">מוגדרים בקוד הגיליון, תחת CFG</span></div><div class="bd"><dl class="kv">' +
+    [['ציון נמוך', 'מתחת ל-' + cfg.low], ['יעד למש"קית', cfg.target + ' תצפיות בסמסטר'], ['יעד למנה"ד ולמפקדת', cfg.weeklyTarget + ' תצפיות בשבוע'],
+     ['משוב באיחור', 'אחרי ' + cfg.feedbackDays + ' ימים'], ['לא נצפתה זמן רב', 'אחרי ' + cfg.staleDays + ' ימים'], ['ירידה שמדליקה סיכון', cfg.riskDrop + ' נקודות ומעלה'],
+     ['סמסטר נוכחי', X.sem]].map(function (p) { return '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>'; }).join('') + '</dl></div></div>' +
+    '<div class="sheet"><div class="hd"><h2>מצב המערכת</h2></div><div class="bd"><dl class="kv">' +
+    [['גרסת האתר', cfg.version], ['תצפיות', D.obs.length], ['מש"קיות בשיוך', Object.keys(X.people).length], ['רשויות', (D.rashuyot || []).length],
+     ['שיפטים', (D.lists.shifts || []).length], ['מחובר כ', D.user.email]].map(function (p) { return '<dt>' + esc(p[0]) + '</dt><dd>' + esc(p[1]) + '</dd>'; }).join('') + '</dl></div></div></div>';
+  return h;
+};
+function sysRow(title, text, act, label) {
+  return '<div class="li"><span class="t">' + esc(title) + '</span><span class="e"><button type="button" class="btn sm" data-act="' + act + '">' + esc(label) + '</button></span><span class="m">' + esc(text) + '</span></div>';
+}
+ACT.sysSync = function (el) {
+  el.disabled = true; el.textContent = 'מסנכרן…';
+  call('apiSyncRoster').then(function (r) {
+    toast('הסנכרון הושלם: ' + r.mashakiot + ' מש"קיות' + (r.incomplete ? ', ' + r.incomplete + ' עם פרטים חסרים' : ''));
+    return reloadData(true);
+  }).catch(function (e) { el.disabled = false; el.textContent = 'סנכרן עכשיו'; fail(e); });
+};
+ACT.sysPres = function (el) {
+  el.disabled = true; el.textContent = 'מפיק…';
+  call('apiPresentation').then(function (r) {
+    el.disabled = false; el.textContent = 'הפק מצגת';
+    openDlg({ title: 'המצגת נוצרה', html: '<div class="db"><p>המצגת נשמרה לצד הגיליון בדרייב.</p></div><div class="df"><a class="btn pri" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + ic('ext') + 'פתח את המצגת</a><button type="button" class="btn" data-act="dlgClose">סגור</button></div>' });
+  }).catch(function (e) { el.disabled = false; el.textContent = 'הפק מצגת'; fail(e); });
+};
+
+/* ==========================================================================
+   הפעלה
+   ========================================================================== */
+var _loadedAt = 0;
+var NAV = [
+  ['home', 'בית', 'home'], ['list', 'תצפיות', 'list'], ['mash', 'מש"קיות', 'people'],
+  ['rep', 'דוחות', 'chart'], ['care', 'טיפול', 'care'], ['adm', 'ניהול', 'gear']
+];
+function navItems() { return NAV.filter(function (n) { return n[0] !== 'adm' || D.user.isAdmin; }); }
+
+function buildChrome() {
+  var u = D.user, who = u.name || u.email.split('@')[0];
+  var rail = '<div class="brand">' + esc(D.cfg.title) + '</div><div class="sub">תוכנית גשרים</div><nav aria-label="ניווט ראשי">';
+  if (u.canWrite) rail += '<button type="button" class="new" data-act="newObs">' + ic('plus') + 'תצפית חדשה</button>';
+  navItems().forEach(function (n) {
+    if (n[0] === 'adm') rail += '<div class="gap"></div>';
+    rail += '<button type="button" data-nav="' + n[0] + '" data-act="go" data-v="' + n[0] + '">' + ic(n[2]) + '<span>' + esc(n[1]) + '</span>' + (n[0] === 'care' ? '<span class="n" id="railN" hidden></span>' : '') + '</button>';
+  });
+  rail += '</nav><div class="me"><b title="' + esc(u.email) + '">' + esc(who) + '</b>' + esc(u.role) + (u.role === 'מנה"ד מחוזי' && u.scope ? ', ' + esc(u.scope) : '') +
+    '<br><button type="button" data-act="refresh">רענן נתונים</button></div>';
+  $('#rail').innerHTML = rail;
+
+  $('#topbar').innerHTML = '<div class="brand">' + esc(D.cfg.title) + '</div><div class="me"><b>' + esc(who) + '</b>' + esc(u.role) + '</div>';
+
+  var tb = '<button type="button" data-nav="home" data-act="go" data-v="home">' + ic('home') + 'בית</button>' +
+    '<button type="button" data-nav="list" data-act="go" data-v="list">' + ic('list') + 'תצפיות</button>';
+  if (u.canWrite) tb += '<button type="button" class="plus" data-nav="form" data-act="newObs" aria-label="תצפית חדשה"><span class="c">' + ic('plus') + '</span></button>';
+  tb += '<button type="button" data-nav="mash" data-act="go" data-v="mash">' + ic('people') + 'מש"קיות</button>' +
+    '<button type="button" data-nav="more" data-act="moreMenu">' + ic('more') + 'עוד<span class="dot" id="tabN" hidden></span></button>';
+  $('#tabbar').innerHTML = tb;
+}
+function afterRender() {
+  if (!X) return;
+  var crit = X.alerts.filter(function (a) { return a.sev === 1; }).length;
+  ['#railN', '#tabN'].forEach(function (id) {
+    var el = $(id); if (!el) return;
+    el.hidden = !crit; el.textContent = crit || '';
+  });
+  var more = $('[data-nav=more]');
+  if (more) more.classList.toggle('on', ['rep', 'care', 'adm'].indexOf(ST.view) !== -1);
+}
+ACT.moreMenu = function () {
+  var crit = X.alerts.filter(function (a) { return a.sev === 1; }).length;
+  var rows = [['rep', 'דוחות', 'תמונת מצב, פילוחים, אחריות, מתצפתים'], ['care', 'טיפול', crit ? crit + ' התראות קריטיות' : 'התראות, המלצות, בקרת נתונים']];
+  if (D.user.isAdmin) rows.push(['adm', 'ניהול', 'משתמשים, סנכרון שיוך, מצגת']);
+  openDlg({
+    title: 'עוד',
+    html: '<div class="opts">' + rows.map(function (r) { return '<button type="button" class="opt" data-act="go" data-v="' + r[0] + '"><b>' + esc(r[1]) + '</b><span>' + esc(r[2]) + '</span></button>'; }).join('') +
+      '<button type="button" class="opt" data-act="refresh"><b>רענן נתונים</b><span>טוען מחדש מהגיליון</span></button></div>' +
+      '<div class="df"><span class="sub">' + esc(D.user.email) + ' · ' + esc(D.user.role) + ' · גרסה ' + esc(D.cfg.version) + '</span></div>'
+  });
+};
+
+function showGate(html) {
+  $('#app').hidden = true;
+  var g = $('#gate'); g.hidden = false;
+  $('#gateMsg').innerHTML = html;
+}
+function gateFor(res) {
+  if (res && res.why === 'noid') return 'לא זוהה חשבון Google.<br>היכנס עם החשבון הארגוני שלך ורענן את הדף.';
+  if (res && res.why === 'domain') return 'לחשבון <span dir="ltr">' + esc(res.email) + '</span> אין הרשאה לאתר.<br>היכנס עם החשבון הארגוני, או פנה למנהל המערכת.';
+  return 'האתר לא נטען. נסה לרענן את הדף.';
+}
+function applyData(res) {
+  D = res; DETAIL = {}; ST.log = null; ST.users = null;
+  recompute();
+  _loadedAt = Date.now();
+}
+function reloadData(force) {
+  return call(force ? 'apiRefresh' : 'apiInit').then(function (res) {
+    if (!res || !res.ok) { showGate(gateFor(res)); return; }
+    applyData(res); buildChrome(); render();
+  });
+}
+ACT.refresh = function () {
+  if (_dlg) closeDlg(null);
+  if (ST.view === 'form' && FORM && FORM.dirty) { toast('שמור קודם את התצפית שבמילוי, ואז רענן.', 'err'); return; }
+  reloadData(true).then(function () { toast('הנתונים עודכנו'); }).catch(fail);
+};
+ACT.retry = function () { start(); };
+
+function start() {
+  showGate('מתחבר…');
+  call('apiInit').then(function (res) {
+    if (!res || !res.ok) { showGate(gateFor(res)); return; }
+    applyData(res);
+    buildChrome();
+    $('#gate').hidden = true;
+    $('#app').hidden = false;
+    render();
+    try {
+      google.script.history.setChangeHandler(function (e) {
+        var s = e && e.state;
+        if (_dlg) closeDlg(null);
+        if (s && s.v) go(s.v, s.p || {}, { silent: true });
+        else go('home', {}, { silent: true });
+      });
+    } catch (err) {}
+  }).catch(function (e) {
+    showGate(esc(cleanErr(e)) + '<br><br><button type="button" class="btn pri" data-act="retry">נסה שוב</button>');
+  });
+}
+
+/* חזרה ללשונית אחרי זמן: טוענים מחדש בשקט, אבל לא באמצע מילוי טופס */
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden || !D || _dlg || ST.view === 'form') return;
+  if (Date.now() - _loadedAt < 4 * 60000) return;
+  _loadedAt = Date.now();
+  call('apiInit').then(function (res) {
+    if (res && res.ok && res.stamp !== D.stamp && ST.view !== 'form' && !_dlg) { applyData(res); render(); }
+  }).catch(function () {});
+});
+var _wide = null, _rsT = null;
+window.addEventListener('resize', function () {
+  clearTimeout(_rsT);
+  _rsT = setTimeout(function () {
+    var w = isWide();
+    if (_wide !== null && w !== _wide && D && ST.view !== 'form' && !_dlg) render();
+    _wide = w;
+  }, 150);
+});
+_wide = isWide();
+start();
+
+</script>
+</body>
+</html>

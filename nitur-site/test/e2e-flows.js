@@ -1,0 +1,331 @@
+const { open, settle, build, Server, OUT } = require('./e2e-lib.js');
+const { chromium } = require('playwright');
+let pass = 0, fail = 0;
+const ok = (c, m) => { if (c) pass++; else { fail++; console.log('  ✗ FAIL: ' + m); } };
+const sec = t => console.log('\n— ' + t);
+const txt = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); return e ? e.innerText : ''; }, sel);
+const toastText = p => p.evaluate(() => Array.from(document.querySelectorAll('.toast')).map(t => t.textContent).join(' | '));
+async function pickOpt(p, btnAct, search, optText) {
+  await p.click(`[data-act="${btnAct}"]`);
+  await p.waitForSelector('.dlg .opts');
+  if (search) await p.fill('.dlg .search input', search);
+  await p.waitForTimeout(60);
+  if (optText) await p.click(`.dlg .opt:has-text("${optText}")`);
+  else await p.click('.dlg .opt');
+  await p.waitForSelector('.dlg', { state: 'detached' });
+}
+async function rateAll(p, vals) {
+  for (let i = 0; i < vals.length; i++) await p.click(`.rub[data-rub="${i}"] .rate button[data-val="${vals[i]}"]`);
+}
+
+(async () => {
+  const browser = await chromium.launch();
+  const T = build();
+  const S = new Server(T.wb, [OUT + 'gas/SheetCode.gs', OUT + 'gas/WebApp.gs']);
+  const main = T.wb.getSheetByName('ניטור תצפיות');
+  const allErrors = [];
+
+  /* ================= מנהל, מחשב ================= */
+  sec('מנהל: בית');
+  let s = await open({ browser, T, S });
+  let p = s.page;
+  const srv = S.call('almogt@cyber.org.il', 'apiInit');
+  ok(await p.isVisible('#app') && !(await p.isVisible('#gate')), 'האתר נטען');
+  ok((await txt(p, '.ledger .cell:first-child .v')).trim() === String(srv.obs.filter(o => o.m && o.d).length), 'מספר התצפיות במסך הבית תואם לשרת');
+  ok(await p.isVisible('.rail [data-nav="adm"]'), 'מנהל רואה "ניהול"');
+  ok(/almogt/.test(await txt(p, '.rail .me')), 'המשתמש מוצג');
+  ok(await p.locator('.chart svg').count() >= 2, 'התרשימים צוירו');
+  ok(await p.locator('.chart .hit[data-tip]').count() > 3, 'לסימני התרשים יש רמזים');
+  await p.hover('.chart .hit >> nth=0');
+  ok(await p.isVisible('.tip'), 'רמז מופיע בריחוף');
+  await p.focus('.hb .tr >> nth=0');
+  ok(await p.isVisible('.tip'), 'רמז מופיע גם במיקוד מקלדת');
+
+  sec('תצפית חדשה מקצה לקצה');
+  const before = srv.obs.length;
+  await p.click('.rail [data-act="newObs"]'); await settle(p);
+  ok(/תצפית חדשה/.test(await txt(p, '.ph h1')), 'הטופס נפתח');
+  const ro = T.roster[20];
+  await pickOpt(p, 'pkMash', ro.name.split(' ')[1], ro.name);
+  ok((await txt(p, '[data-act="pkRashut"] .v')).trim() === ro.rashut, 'הרשות הושלמה לבד');
+  const auto = await txt(p, '.auto');
+  ok(auto.includes(ro.manhad) && auto.includes(ro.mef) && auto.includes(ro.plugah), 'לוח ההשלמה מציג מנה"ד, מפקדת ופלוגה');
+  await p.click('[data-act="fSave"][data-fin="1"]'); await p.waitForTimeout(150);
+  ok(/חסר/.test(await toastText(p)), 'סיום בלי שדות — הודעה מה חסר');
+  ok(await p.locator('.form .in.err').count() >= 5 && await p.locator('.rub.miss').count() === 6, 'השדות החסרים מסומנים');
+  await pickOpt(p, 'pkSchool', '', 'מקיף א');
+  await p.fill('#fKlass', "ח'2");
+  await p.selectOption('#fShift', 'Shift2Code'); await settle(p);
+  await pickOpt(p, 'pkLesson', '3', 'מפגש 3');
+  await p.selectOption('#fRole', 'מנהד אזורי'); await settle(p);
+  await pickOpt(p, 'pkObserver', '', ro.manhad);
+  await rateAll(p, [5, 4, 3, 4, 5, 4]);
+  const expect = Math.round((5 / 5 * .1 + 4 / 5 * .15 + 3 / 5 * .15 + 4 / 5 * .15 + 5 / 5 * .15 + 4 / 5 * .3) * 100);
+  ok((await txt(p, '#fScore b')).trim() === String(expect), 'הציון המשוקלל מחושב תוך כדי מילוי: ' + expect);
+  await p.click('.rub[data-rub="0"] [data-act="fOpen"]');
+  await p.fill('[data-d="0"]', 'שולטת בחומר, ענתה על כל שאלה');
+  await p.fill('#fKeep', 'פתיחה חזקה\nשאלות פתוחות');
+  await p.fill('#fImp', 'לסיים בזמן');
+  await p.click('.seg [data-k="feedback"][data-val="לא"]');
+  ok(await p.locator('.form .in.err').count() === 0, 'סימוני החוסר נעלמו אחרי מילוי');
+  await p.click('[data-act="fSave"][data-fin="1"]'); await settle(p);
+  ok(await p.evaluate(() => ST.view) === 'obs', 'אחרי שמירה עוברים לתצפית');
+  ok(/נשמרה/.test(await toastText(p)), 'הודעת הצלחה');
+  const newRow = await p.evaluate(() => Number(ST.p.r));
+  ok(newRow === T.lastData + 1, 'נכתב לשורה הבאה בגיליון: ' + newRow);
+  const rowVals = main.getRange(newRow, 1, 1, 100).getValues()[0];
+  ok(rowVals[2] === ro.name && rowVals[11] === ro.rashut && rowVals[12] === 'מקיף א' && rowVals[13] === "ח'2", 'מש"קית, רשות, בית ספר וכיתה בגיליון');
+  ok(rowVals[7] === ro.manhad && rowVals[8] === ro.mef && String(rowVals[3]) === ro.pid && rowVals[6] === ro.plugah, 'שדות השיוך בגיליון');
+  ok(rowVals[14] === 'Shift2Code' && /מפגש 3/.test(rowVals[15]) && rowVals[16] === 'מנהד אזורי' && rowVals[17] === ro.manhad, 'שיפט, שיעור, תפקיד ומתצפת');
+  ok(rowVals[19] === 5 && rowVals[29] === 4 && rowVals[20] === 'שולטת בחומר, ענתה על כל שאלה' && rowVals[22] === '-', 'ציונים ופירוט (ריק = מקף)');
+  ok(rowVals[31] === expect && rowVals[32] === 'פתיחה חזקה\nשאלות פתוחות' && rowVals[37] === 'לא' && rowVals[38] === true && rowVals[1] === true, 'ציון, משוב מילולי, משוב, סיום ותחילה');
+  ok(rowVals[10] === 'אין' && rowVals[35] === 'אין מתגברת' && rowVals[99] === 'almogt@cyber.org.il', 'מתגברת "אין" ומי הזין');
+  ok((await txt(p, '.sc.big')).trim() === String(expect), 'הציון מוצג בתצפית');
+  ok((await txt(p, '.txt-b .txt')).includes('שאלות פתוחות'), 'המשוב המילולי מוצג בלי קריאה נוספת לשרת');
+  ok(await p.evaluate(() => D.obs.length) === before + 1, 'הרשימה בדפדפן עודכנה בלי טעינה מחדש');
+
+  sec('כפילות');
+  await p.click('.rail [data-act="newObs"]'); await settle(p);
+  await pickOpt(p, 'pkMash', '', ro.name);
+  await pickOpt(p, 'pkSchool', '', 'מקיף א');
+  await p.selectOption('#fShift', 'Shift2Code'); await settle(p);
+  await pickOpt(p, 'pkLesson', '3', 'מפגש 3');
+  await p.selectOption('#fRole', 'מנהד אזורי'); await settle(p);
+  await pickOpt(p, 'pkObserver', '', ro.manhad);
+  await p.click('[data-act="fSave"][data-fin="0"]'); await settle(p);
+  ok(await p.isVisible('.dlg') && /זהה כבר קיימת/.test(await txt(p, '.dlg')), 'חלון אזהרת כפילות');
+  await p.click('.dlg [data-act="dlgClose"]'); await settle(p);
+  ok(await p.evaluate(() => Number(ST.p.r)) === newRow && await p.evaluate(() => ST.view) === 'obs', '"פתח את הקיימת" מוביל לתצפית הקיימת');
+  ok(await p.evaluate(() => D.obs.length) === before + 1, 'לא נוצרה כפילות');
+
+  sec('טיוטה, המשך מילוי, משוב');
+  await p.click('.rail [data-act="newObs"]'); await settle(p);
+  const ro2 = T.roster[21];
+  await pickOpt(p, 'pkMash', '', ro2.name);
+  await p.click('[data-act="fSave"][data-fin="0"]'); await settle(p);
+  const draftRow = await p.evaluate(() => Number(ST.p.r));
+  ok(/הטיוטה נשמרה/.test(await toastText(p)) && /לא הסתיימה/.test(await txt(p, '.callout')), 'טיוטה נשמרה ומסומנת');
+  ok(main.getRange(draftRow, 39).getValue() === false && main.getRange(draftRow, 2).getValue() === true, 'בגיליון: התחילה, לא הסתיימה');
+  await p.click('.rail [data-nav="home"]'); await settle(p);
+  ok(/לא הסתיימ/.test(await txt(p, '.callout.warn')), 'מסך הבית מזכיר את הטיוטה');
+  await p.click('.callout [data-act="editObs"]'); await settle(p);
+  ok(/עריכת תצפית/.test(await txt(p, '.ph h1')) && (await txt(p, '[data-act="pkMash"] .v')).trim() === ro2.name, 'הטופס נפתח עם הנתונים');
+  await pickOpt(p, 'pkSchool', 'בית ספר חדש לגמרי', 'בית ספר חדש לגמרי');
+  ok((await txt(p, '[data-act="pkSchool"] .v')).trim() === 'בית ספר חדש לגמרי', 'ערך שאינו ברשימה מתקבל');
+  await p.fill('#fKlass', "ז'1");
+  await p.selectOption('#fShift', 'מדמח_א'); await settle(p);
+  await pickOpt(p, 'pkLesson', '', 'מפגש 1');
+  await p.selectOption('#fRole', 'מפקדת'); await settle(p);
+  await pickOpt(p, 'pkObserver', '', ro2.mef);
+  await pickOpt(p, 'pkBoost', '', T.roster[30].name);
+  ok(await p.isVisible('[data-k="boostFn"]'), 'נבחרה מתגברת — מופיע דירוג התפקוד');
+  await p.click('[data-k="boostFn"][data-val="טוב"]');
+  await rateAll(p, [2, 2, '-', 3, 2, 2]);
+  ok(/חסר ציון/.test(await txt(p, '#fScore')), '"לא נצפה" — מוצג "חסר ציון"');
+  await p.click('.rub[data-rub="2"] .rate button[data-val="3"]');
+  await p.fill('#fKeep', 'קשר טוב'); await p.fill('#fImp', 'שליטה בחומר');
+  await p.click('[data-act="fSave"][data-fin="1"]'); await settle(p);
+  ok(main.getRange(draftRow, 39).getValue() === true && main.getRange(draftRow, 11).getValue() === T.roster[30].name && main.getRange(draftRow, 36).getValue() === 'טוב', 'הטיוטה הושלמה; המתגברת ותפקודה נכתבו');
+  ok(await p.locator('.sc.big.low').count() === 1, 'ציון נמוך מסומן');
+  ok(/המשוב עוד לא סומן/.test(await txt(p, '.callout')), 'בלי משוב — מוצגת בקשה לסמן');
+  await p.click('[data-act="fbSet"][data-val="כן"]'); await settle(p);
+  ok(main.getRange(draftRow, 38).getValue() === 'כן' && !(await p.isVisible('.callout')), 'סימון משוב בלחיצה אחת נכתב לגיליון');
+
+  sec('טיוטה מקומית שלא נשמרה');
+  await p.click('.rail [data-act="newObs"]'); await settle(p);
+  await pickOpt(p, 'pkMash', '', T.roster[22].name);
+  await p.fill('#fKeep', 'טקסט שלא נשמר');
+  await p.waitForTimeout(650);
+  await p.click('.rail [data-nav="list"]'); await settle(p);
+  ok(/נשמר במכשיר/.test(await toastText(p)), 'יציאה באמצע — הודעה שהטקסט נשמר במכשיר');
+  await p.click('.rail [data-act="newObs"]'); await settle(p);
+  ok(/יש טיוטה שלא נשמרה/.test(await txt(p, '.callout')), 'בחזרה לטופס — מוצעת הטיוטה');
+  await p.click('[data-act="draftUse"]'); await settle(p);
+  ok((await p.inputValue('#fKeep')) === 'טקסט שלא נשמר' && (await txt(p, '[data-act="pkMash"] .v')).trim() === T.roster[22].name, 'הטיוטה שוחזרה');
+  await p.evaluate(() => { FORM.dirty = false; lsDel(DRAFT_KEY); });
+
+  sec('מש"קית שאינה בקובץ השיוך');
+  await pickOpt(p, 'pkMash', 'שם חדש לגמרי', 'שם חדש לגמרי');
+  ok(/לא נמצאה בקובץ השיוך/.test(await txt(p, '.auto.warn')), 'אזהרה ברורה');
+  await p.evaluate(() => { FORM.dirty = false; });
+
+  sec('רשימה: חיפוש, סינון, מיון, ייצוא');
+  await p.click('.rail [data-nav="list"]'); await settle(p);
+  const total = await p.evaluate(() => X.valid.length + X.broken.length);
+  ok((await txt(p, '.bar .cnt')).trim() === String(total), 'מונה הרשימה');
+  await p.fill('[data-inp="listQ"]', ro.name); await p.waitForTimeout(350);
+  const found = await p.locator('table.t tbody tr').count();
+  ok(found >= 1 && (await txt(p, 'table.t tbody')).split(ro.name).length - 1 === found, 'חיפוש לפי שם: ' + found + ' תוצאות');
+  ok(await p.evaluate(() => document.activeElement && document.activeElement.dataset.inp) === 'listQ', 'המיקוד נשאר בתיבת החיפוש');
+  await p.click('[data-act="listClear"]'); await settle(p);
+  await p.selectOption('[data-ch="listSt"]', 'low'); await settle(p);
+  ok(await p.evaluate(() => listRows().every(o => o.s !== null && o.s < 70)), 'סינון ציון נמוך');
+  await p.selectOption('[data-ch="listSt"]', 'madmach'); await settle(p);
+  ok(await p.evaluate(() => listRows().length > 0 && listRows().every(o => /מדמח/.test(o.sh))), 'סינון מדמ"ח');
+  await p.selectOption('[data-ch="listSt"]', ''); await settle(p);
+  await p.click('th[data-k="s"]'); await settle(p);
+  const sorted = await p.evaluate(() => Array.from(document.querySelectorAll('table.t tbody tr td:nth-child(7)')).map(td => parseFloat(td.innerText)).filter(x => !isNaN(x)));
+  ok(sorted.length > 5 && sorted.every((v, i) => i === 0 || v <= sorted[i - 1]), 'מיון לפי ציון, מהגבוה לנמוך');
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-act="csv"]')]);
+  const csv = require('fs').readFileSync(await dl.path(), 'utf8');
+  ok(csv.charCodeAt(0) === 0xFEFF && csv.split('\r\n').length === total + 1 && /^.תאריך,"מש""קית"/.test(csv), 'ייצוא CSV: BOM לעברית, שורה לכל תצפית');
+  await p.focus('table.t tbody tr >> nth=0'); await p.keyboard.press('Enter'); await settle(p);
+  ok(await p.evaluate(() => ST.view) === 'obs', 'Enter על שורה פותח את התצפית');
+
+  sec('עריכה ויומן, מחיקה');
+  await p.evaluate(r => go('obs', { r }), newRow); await settle(p);
+  await p.click('[data-act="editObs"]'); await settle(p);
+  ok((await p.inputValue('#fKeep')) === 'פתיחה חזקה\nשאלות פתוחות' && await p.locator('.rub[data-rub="0"] .rate .on').count() === 1, 'הטופס נטען עם הערכים הקיימים');
+  ok(await p.isVisible('[data-d="0"]') && (await p.inputValue('[data-d="0"]')).includes('שולטת'), 'הפירוט הקיים פתוח');
+  ok(await p.locator('[data-act="fSave"]').count() === 1 && /שמור שינויים/.test(await txt(p, '.savebar')), 'תצפית שהסתיימה: כפתור אחד');
+  await p.click('.rub[data-rub="1"] .rate button[data-val="5"]');
+  await p.click('[data-act="fSave"]'); await settle(p);
+  ok(main.getRange(newRow, 22).getValue() === 5, 'העריכה נכתבה');
+  await p.click('.rail [data-nav="care"]'); await settle(p);
+  await p.click('[data-act="tab"][data-t="log"]'); await settle(p);
+  const logTxt = await txt(p, 'table.t tbody');
+  ok(/חיבור מיומנויות/.test(logTxt) && /תצפית חדשה/.test(logTxt) && /הועבר משוב/.test(logTxt), 'יומן השינויים מציג עריכה, יצירה ומשוב');
+  await p.evaluate(r => go('obs', { r }), draftRow); await settle(p);
+  await p.click('[data-act="delObs"]');
+  ok(/אי אפשר לשחזר/.test(await txt(p, '.dlg')), 'מחיקה מבקשת אישור');
+  await p.click('.dlg [data-act="dlgClose"]');
+  ok(main.getRange(draftRow, 3).getValue() === ro2.name, 'ביטול — לא נמחק');
+  await p.click('[data-act="delObs"]'); await p.click('.dlg [data-act="dlgOk"]'); await settle(p);
+  ok(main.getRange(draftRow, 3).getValue() === '' && await p.evaluate(() => ST.view) === 'list', 'אישור — נמחק, חזרה לרשימה');
+
+  sec('מש"קיות, כרטיס, דוחות, טיפול');
+  await p.click('.rail [data-nav="mash"]'); await settle(p);
+  ok((await txt(p, '.bar .cnt')).trim() === String(await p.evaluate(() => X.universe.length)), 'כל המש"קיות מהשיוך');
+  await p.selectOption('[data-ch="mashSt"]', 'never'); await settle(p);
+  ok(await p.evaluate(() => mashRows().length > 0 && mashRows().every(s => s.total === 0)), 'סינון "טרם נצפו"');
+  await p.click('table.t tbody tr >> nth=0'); await settle(p);
+  ok(/עוד לא נצפתה/.test(await txt(p, '#main')) && await p.isVisible('[data-v="form"][data-n]'), 'כרטיס למש"קית בלי תצפיות, עם קיצור להזנה');
+  await p.click('.empty [data-v="form"]'); await settle(p);
+  ok((await txt(p, '[data-act="pkMash"] .v')).trim().length > 2 && (await txt(p, '[data-act="pkRashut"] .v')).trim().length > 1, '"תצפית חדשה עליה" פותח טופס עם המש"קית והרשות');
+  await p.click('.rail [data-nav="rep"]'); await settle(p);
+  for (const t of ['nat', 'dim', 'resp', 'obsv', 'month', 'mad']) {
+    await p.click(`[data-act="tab"][data-t="${t}"]`); await settle(p);
+    ok(await p.locator('#main .sheet').count() >= 1 && !/המסך לא נטען/.test(await txt(p, '#main')), 'דוח "' + t + '" מוצג');
+  }
+  await p.click('[data-act="tab"][data-t="nat"]'); await settle(p);
+  const foot = parseFloat((await txt(p, 'table.t tfoot td:last-child')).trim()), avg = await p.evaluate(() => X.nat.avg);
+  ok(Math.abs(foot - avg) < 1, 'סכום "תרומה לציון" צמוד לממוצע הכללי: ' + foot + ' מול ' + avg.toFixed(1));
+  await p.click('[data-act="tab"][data-t="dim"]'); await settle(p);
+  for (const d of ['sc', 'sh', 'mz', 'pl', 'mc', 'm', 'ra']) { await p.selectOption('[data-ch="repDim"]', d); await settle(p); ok(await p.locator('table.t tbody tr').count() > 0, 'פילוח לפי ' + d); }
+  const sumN = await p.evaluate(() => pivot(X.valid, o => o.ra).reduce((s, r) => s + r.n, 0) === X.valid.filter(o => o.ra).length);
+  ok(sumN, 'סכום הפילוח שווה למספר התצפיות');
+  await p.click('table.t tbody tr >> nth=0'); await settle(p);
+  ok(await p.evaluate(() => ST.view === 'list' && ST.list.ra !== ''), 'לחיצה על שורת פילוח פותחת את התצפיות שלה');
+  await p.click('.rail [data-nav="care"]'); await settle(p);
+  for (const t of ['alerts', 'reco', 'risk', 'quality']) {
+    await p.click(`[data-act="tab"][data-t="${t}"]`); await settle(p);
+    ok(!/המסך לא נטען/.test(await txt(p, '#main')) && await p.locator('#main .sheet').count() >= 1, 'טיפול "' + t + '" מוצג');
+  }
+  const q = await p.evaluate(() => { const q = quality(); return { u: q.unknown.map(x => x.n + '>' + x.best), r: q.roster.length, o: q.obs.length }; });
+  ok(q.u.some(x => /נטע חלפוןן/.test(x)) && q.r >= 2, 'בקרת נתונים מזהה שם לא מוכר ושורת שיוך משובשת');
+  await p.click('[data-act="tab"][data-t="alerts"]'); await settle(p);
+  const a0 = await p.evaluate(() => X.alerts.length);
+  await p.click('table.t [data-act="fbSet"] >> nth=0'); await settle(p);
+  ok(await p.evaluate(() => ST.view) === 'care' && await p.evaluate(() => X.alerts.length) === a0 - 1, 'סימון משוב מתוך טבלת ההתראות — ההתראה נסגרת ונשארים במסך');
+
+  sec('ניהול משתמשים');
+  await p.click('.rail [data-nav="adm"]'); await settle(p);
+  ok(await p.locator('table.t tbody tr').count() === 2, 'שני המנהלים הקבועים');
+  await p.click('[data-act="userEdit"][data-email=""]');
+  await p.fill('#uEmail', 'aviya@cyber.org.il'); await p.selectOption('#uRole', 'מנה"ד');
+  await p.click('[data-act="userSave"]'); await p.waitForTimeout(250);
+  ok(/חובה לבחור שם/.test(await toastText(p)) && await p.isVisible('.dlg'), 'מנה"ד בלי שם — שגיאה והחלון נשאר');
+  await p.fill('#uName', 'אביה בצלאל'); await p.click('[data-act="userSave"]'); await settle(p);
+  ok(await p.locator('table.t tbody tr').count() === 3 && /אביה בצלאל/.test(await txt(p, 'table.t')), 'המשתמש נוסף');
+  await p.click('[data-act="userEdit"][data-email=""]');
+  await p.fill('#uEmail', 'boss@cyber.org.il'); await p.selectOption('#uRole', 'צופה'); await p.click('[data-act="userSave"]'); await settle(p);
+  await p.click('[data-act="userEdit"][data-email=""]');
+  await p.fill('#uEmail', 'noa@cyber.org.il'); await p.selectOption('#uRole', 'מנה"ד מחוזי');
+  ok(await p.isVisible('#uScopeBox'), 'למחוזי מופיעה בחירת מחוז');
+  await p.selectOption('#uScope', 'צפון'); await p.fill('#uName', 'נועה'); await p.click('[data-act="userSave"]'); await settle(p);
+  await p.click('[data-act="tab"][data-t="sys"]'); await settle(p);
+  await p.click('[data-act="sysPres"]'); await p.waitForTimeout(300);
+  ok(/מצגת/.test(await toastText(p)), 'מצגת בלי דשבורד — הודעת שגיאה מובנת');
+  await p.click('[data-act="refresh"] >> nth=0'); await settle(p);
+  ok(/עודכנו/.test(await toastText(p)), 'רענון נתונים');
+  allErrors.push(...s.errors); await s.ctx.close();
+
+  /* ================= תפקידים ================= */
+  sec('מנה"ד');
+  s = await open({ browser, T, S, email: 'aviya@cyber.org.il' }); p = s.page;
+  ok(!(await p.isVisible('.rail [data-nav="adm"]')), 'אין "ניהול"');
+  ok(/מש"קיות באחריותך/.test(await txt(p, '.ph .lead')), 'שורת ההיקף מסבירה מה מוצג');
+  const scopeOk = await p.evaluate(() => D.obs.every(o => D.mine.indexOf(o.m) !== -1 || o.mn === 'אביה בצלאל' || o.ob === 'אביה בצלאל'));
+  ok(scopeOk && await p.evaluate(() => D.obs.length) > 0, 'רואה רק את שבאחריותה');
+  ok(await p.evaluate(() => D.roster.every(r => r.pid === undefined)), 'מספרים אישיים לא נשלחים לדפדפן');
+  await p.click('.rail [data-act="newObs"]'); await settle(p);
+  ok((await p.inputValue('#fRole')) === 'מנהד אזורי' && (await txt(p, '[data-act="pkObserver"] .v')).trim() === 'אביה בצלאל', 'התפקיד והשם מולאו מראש');
+  await p.click('[data-act="pkMash"]'); await p.waitForSelector('.dlg .grp');
+  ok(/באחריותך/.test(await txt(p, '.dlg .grp')), 'בבחירת מש"קית, שלה מופיעות ראשונות');
+  await p.click('.dlg [data-act="dlgClose"]');
+  await p.evaluate(() => go('obs', { r: D.obs.filter(o => !o.e)[0].r })); await settle(p);
+  ok(!(await p.isVisible('[data-act="editObs"]')) && !(await p.isVisible('[data-act="delObs"]')), 'תצפית של אחר: בלי עריכה ובלי מחיקה');
+  await p.evaluate(() => go('adm')); await settle(p);
+  ok(/מנהלי המערכת בלבד/.test(await txt(p, '#main')), 'ניסיון להגיע לניהול — חסום');
+  await p.evaluate(() => go('care')); await settle(p);
+  ok(!(await p.isVisible('[data-t="log"]')), 'אין יומן שינויים');
+  allErrors.push(...s.errors); await s.ctx.close();
+
+  sec('צופה');
+  s = await open({ browser, T, S, email: 'boss@cyber.org.il' }); p = s.page;
+  ok(!(await p.isVisible('.rail [data-act="newObs"]')), 'אין כפתור תצפית חדשה');
+  ok(await p.evaluate(() => D.obs.length) === S.call('almogt@cyber.org.il', 'apiInit').obs.length, 'רואה הכל');
+  await p.evaluate(() => go('form')); await settle(p);
+  ok(/אין הרשאת הזנה/.test(await txt(p, '#main')), 'הטופס חסום');
+  allErrors.push(...s.errors); await s.ctx.close();
+
+  sec('מתצפת חדש, בנייד');
+  s = await open({ browser, T, S, email: 'newbie@cyber.org.il', viewport: { width: 390, height: 844 }, dpr: 2, touch: true }); p = s.page;
+  ok(/עוד אין כאן תצפיות/.test(await txt(p, '#main')) && await p.isVisible('.empty [data-act="newObs"]'), 'מצב ריק עם הזמנה לפעולה');
+  ok(await p.isVisible('.tabbar') && !(await p.isVisible('.rail')), 'בנייד: סרגל תחתון');
+  await p.tap('.tabbar .plus'); await settle(p);
+  await pickOpt(p, 'pkMash', '', T.roster[25].name);
+  await pickOpt(p, 'pkObserver', 'ישראל ישראלי', 'ישראל ישראלי');
+  await p.tap('[data-act="fSave"][data-fin="0"]'); await settle(p);
+  ok(await p.evaluate(() => D.obs.length) === 1 && await p.evaluate(() => ST.view) === 'obs', 'טיוטה נשמרה מהנייד');
+  const noScroll = await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+  ok(noScroll, 'אין גלילה אופקית בנייד');
+  await p.tap('.tabbar [data-nav="more"]');
+  ok(await p.isVisible('.dlg') && !/ניהול/.test(await txt(p, '.dlg .opts')), 'תפריט "עוד" בלי ניהול');
+  await p.tap('.dlg .opt[data-v="rep"]'); await settle(p);
+  ok(await p.evaluate(() => ST.view) === 'rep' && !(await p.isVisible('.dlg')), 'ניווט מהתפריט סוגר אותו');
+  await p.reload(); await p.waitForFunction(() => window.D && !document.querySelector('#busy.on')); await settle(p);
+  await p.tap('.tabbar .plus'); await settle(p);
+  ok((await txt(p, '[data-act="pkObserver"] .v')).trim() === 'ישראל ישראלי', 'השם נזכר לתצפית הבאה');
+  for (const v of ['home', 'list', 'mash', 'rep', 'care']) {
+    await p.evaluate(v => { if (window.FORM) FORM.dirty = false; go(v); }, v); await settle(p);
+    ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'בלי גלילה אופקית: ' + v);
+  }
+  await p.evaluate(() => window.__histCb({ state: { v: 'list', p: {} } })); await settle(p);
+  ok(await p.evaluate(() => ST.view) === 'list', 'כפתור "חזרה" של הדפדפן מנווט בתוך האתר');
+  allErrors.push(...s.errors); await s.ctx.close();
+
+  sec('כניסה חסומה');
+  s = await open({ browser, T, S, email: 'x@gmail.com' }); p = s.page;
+  ok(await p.isVisible('#gate') && /אין הרשאה/.test(await txt(p, '#gateMsg')) && !(await p.isVisible('#app')), 'חשבון חיצוני — מסך חסימה');
+  allErrors.push(...s.errors); await s.ctx.close();
+  s = await open({ browser, T, S, email: '' }); p = s.page;
+  ok(/לא זוהה/.test(await txt(p, '#gateMsg')), 'בלי זהות — הסבר');
+  allErrors.push(...s.errors); await s.ctx.close();
+
+  sec('הזרקת קוד');
+  const T2 = build({ obs: 4, edge: false });
+  T2.wb.getSheetByName('ניטור תצפיות').getRange(5, 3).setValue('<img src=x onerror="window.__xss=1">');
+  T2.wb.getSheetByName('ניטור תצפיות').getRange(5, 13).setValue('"><script>window.__xss=1</scr' + 'ipt>');
+  s = await open({ browser, T: T2 }); p = s.page;
+  for (const v of ['home', 'list', 'mash', 'rep', 'care']) { await p.evaluate(v => go(v), v); await settle(p); }
+  await p.evaluate(() => go('obs', { r: 5 })); await settle(p);
+  await p.evaluate(() => go('card', { n: X.byRow[5].m })); await settle(p);
+  ok(await p.evaluate(() => window.__xss === undefined) && await p.locator('#main img').count() === 0, 'תוכן מהגיליון מוצג כטקסט ולא כקוד');
+  allErrors.push(...s.errors); await s.ctx.close();
+
+  await browser.close();
+  ok(allErrors.length === 0, 'אין שגיאות JavaScript: ' + allErrors.slice(0, 3).join(' || '));
+  console.log('\n' + (fail ? '✗ ' : '✓ ') + pass + ' עברו, ' + fail + ' נכשלו');
+  process.exit(fail ? 1 : 0);
+})().catch(e => { console.error('E2E CRASHED:', e.message.split('\n').slice(0, 6).join('\n')); process.exit(1); });

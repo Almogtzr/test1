@@ -1,0 +1,12 @@
+const fs = require('fs'), path = require('path');
+const dir = __dirname;
+const order = ['core', 'compute', 'charts', 'views-main', 'views-form', 'views-people', 'views-reports', 'views-care', 'views-admin', 'boot'];
+const js = order.map(n => fs.readFileSync(path.join(dir, 'src', 'js', n + '.js'), 'utf8')).join('\n');
+const css = fs.readFileSync(path.join(dir, 'src', 'styles.css'), 'utf8');
+let html = fs.readFileSync(path.join(dir, 'src', 'shell.html'), 'utf8').replace('/*CSS*/', () => css).replace('/*JS*/', () => js);
+if (html.indexOf('<' + '?') !== -1) throw new Error('הקובץ מכיל רצף של תבנית Apps Script');
+if ((html.match(/<\/script>/g) || []).length !== 1) throw new Error('תג סגירת script מופיע בתוך הקוד');
+const out = process.argv[2] || path.join(dir, 'dist', 'WebAppUI.html');
+fs.writeFileSync(out, html);
+fs.writeFileSync(path.join(dir, 'dist', 'bundle.js'), js);
+console.log('built', out, Math.round(html.length / 1024) + 'KB');
